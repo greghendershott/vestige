@@ -5,7 +5,8 @@
                      racket/syntax
                      syntax/define
                      syntax/name
-                     syntax/parse)
+                     syntax/parse
+                     "expression-id.rkt")
          "core.rkt")
 
 (provide trace
@@ -33,21 +34,26 @@
      (let-values ([(name def) (normalize-definition stx #'lambda #t #t)])
        #`(begin #,(quasisyntax/loc stx (define #,name #,def)) (trace #,name)))]))
 
-(define-syntax trace-let
-  (syntax-rules ()
-    [(_ name ([x* e*] ...) body ...)
-     ((letrec ([name (lambda (x* ...) body ...)]) (trace name) name)
-      e* ...)]))
+(define-syntax (trace-let stx)
+  (syntax-parse stx
+    [(_ name:id ([id:id e:expr] ...) body ...+)
+     #'((letrec ([name (lambda (id ...) body ...)]) (trace name) name) e ...)]
+    [(_ ([id:id e:expr] ...) body ...+)
+     #'(let ([id e] ...) body ...)]))
 
+;; Note: Although it might seem silly to handle this with trace-let,
+;; as opposed to simply logging the expression source and value
+;; directly, the advantage is that the level will be correct. As a
+;; result if some tool is indenting and/or folding by level, this will
+;; appear naturally in relation to other trace-x forms (including
+;; nested uses of trace-expression). We use expression->identifier to
+;; synthesize an identifier with a syntax-property attached, holding
+;; the datum of #'e datum for use when logging.
 (define-syntax (trace-expression stx)
   (syntax-parse stx
     [(_ e:expr)
-     (with-syntax ([id (syntax-property
-                        (format-id #'e (~a (syntax->datum #'e)) #:source #'e)
-                        'vestige-expression
-                        (~a (syntax->datum #'e))
-                        #t)])
-       (quasisyntax/loc stx (trace-let id () e)))]))
+     (with-syntax ([id (expression->identifier #'e)])
+       (syntax/loc stx (trace-let id () e)))]))
 
 (define-syntax (trace-lambda stx)
   (define (infer-name-or-error)
@@ -61,5 +67,3 @@
                    #:defaults ([name (datum->syntax stx (infer-name-or-error) stx)]))
         args body:expr ...)
      #`(let ([name #,(quasisyntax/loc stx (lambda args body ...))]) (trace name) name)]))
-
-

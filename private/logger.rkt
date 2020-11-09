@@ -3,7 +3,8 @@
 (require racket/format
          racket/list
          racket/match
-         "srcloc.rkt")
+         "srcloc.rkt"
+         "expression-id.rkt")
 
 (provide log-args
          log-results
@@ -25,7 +26,7 @@
 
 (define (log-args id args kws kw-vals level)
   (define str
-    (match (syntax-property id 'vestige-expression)
+    (match (expression-identifier->string id)
       [(? string? v)  v]
       [_ (~a `(,(syntax-e id) ,@args ,@(append-map list kws kw-vals)))]))
   (log! (~a (make-string (add1 level) #\>) " " str)

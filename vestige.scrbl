@@ -6,8 +6,6 @@
                      vestige/logger)
           scribble/example)
 
-@(define the-eval (make-base-eval))
-
 @(module m racket/base
    (require (for-label racket/trace) scribble/manual)
    (define trace-id (racket trace))
@@ -98,13 +96,26 @@ expressions in a module, or do ad hoc tracing in a REPL.
            (trace-define (head args) body ...+))]{
 Like @|trace-define-id|.}
 
-@defform[(trace-lambda [#:name id] args expr)]{Like @|trace-lambda-id|.}
+@defform[(trace-lambda [#:name id] args expr)]{
+Like @|trace-lambda-id|.}
 
-@defform[(trace-let id ([arg expr] ...+) body ...+)]{Like @|trace-let-id|.}
+@defform*[((trace-let id ([arg expr] ...+) body ...+)
+           (trace-let ([id expr] ...) body ...+))]{
+The first form (``named let'') is like @|trace-let-id|.
 
-@defform[(trace-expression e)]{Equivalent to @racket[(trace-let
-gensym-id () e)] but for clarity the generated identifier is replaced
-with @racket[e] in the trace logger events.}
+The second form is simply @racket[let].}
+
+@defform[(trace-expression expression)]{Equivalent to
+@racket[(trace-let generated-identifier () expression)], although for
+clarity the generated identifier is replaced with
+@racket[(syntax->datum #'expression)] in trace logger events.
+
+The rationale for expanding to @racket[trace-let] --- instead of
+simply directly logging the @racket[expression] datum and the
+resulting value --- is that the level (``call depth'') in relation to
+other traced calls, as well as to nested uses of
+@racket[trace-expression], will be available and correct for tools
+that use levels for indent or other purposes.}
 
 @subsection{Ad hoc tracing in REPL}
 
@@ -139,29 +150,60 @@ make a log receiver --- either from scratch or by using
 
 Here we show using the values from @racketmodname[vestige/logger] to
 make a log receiver (using the convenience
-@racket[with-intercepted-logging]) that shows the logger events:
+@racket[with-intercepted-logging]) that shows the logger event
+vectors:
 
-@examples[#:eval the-eval #:no-prompt #:label #f
-(require vestige/explicit
-         racket/logging
-         racket/match
-         racket/pretty
-         vestige/logger)
-
-(with-intercepted-logging
-  (match-lambda [(vector _level message-str val _topic)
-                 (pretty-print (list message-str val))])
-  #:logger logger
-  (lambda ()
-    (trace-define (f x) (if (zero? x) 0 (add1 (f (sub1 x)))))
-    (f 3)
-    (trace-expression (+ 1 2)))
-  level
-  topic)
+@examples[#:eval (make-base-eval) #:no-prompt #:label #f
+  (require racket/logging
+           racket/format
+           racket/match
+           racket/pretty
+           vestige/explicit
+           vestige/logger)
+  (define (example)
+    (trace-define (f x) (+ 1 x))
+    (f 42)
+    (trace-expression (* 2 3)))
+  (with-intercepted-logging pretty-print #:logger logger example level topic)
 ]
 
-Keep in mind that the @racket['srcloc] mapping values such as
-@racket['(eval 2 0 1 2)] are a result of how these examples are
+Note: The @racket['srcloc] mapping values in this example such as
+@racket[(eval 2 0 2 1)] are a result of how these examples are
 evaluated to build this documentation. In real usage, when the source
-is a file, the values would look something like
-@racket['("/path/to/foo.rkt" 2 0 1 2)].
+is a file, they would look something like @racket[("/path/to/file.rkt"
+2 0 2 1)].
+
+Tip: The @racket['thread] mapping values can be especially useful when
+you keep in mind that the @racket[object-name] of a Racket
+@tech/ref{thread descriptor} defaults to the name of its thunk
+procedure. You can even use @racket[procedure-rename] to give every
+thread a unique name related to a ``job'' or ``request'', as discussed
+in
+@hyperlink["https://www.greghendershott.com/2018/11/thread-names.html"]{this
+blog post}.
+
+Here is the example modified to convert the logger event value's
+@racket[hasheq] to JSON:
+
+@examples[#:eval (make-base-eval) #:no-prompt #:label #f
+  (require racket/logging
+           racket/format
+           racket/match
+           vestige/explicit
+           vestige/logger
+           json)
+  (define (example)
+    (trace-define (f x) (+ 1 x))
+    (f 42)
+    (trace-expression (* 2 3)))
+  (define interceptor
+    (match-lambda [(vector _level _str value _topic)
+                   (define (->jsexpr v)
+                     (cond [(hash? v)   (for/hasheq ([(k v) (in-hash value)])
+                                          (values k (->jsexpr v)))]
+                           [(list? v)   (map ->jsexpr v)]
+                           [(number? v) v]
+                           [else        (~a v)]))
+                   (displayln (jsexpr->string (->jsexpr value)))]))
+  (with-intercepted-logging interceptor #:logger logger example level topic)
+]
