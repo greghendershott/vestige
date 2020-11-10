@@ -6,3 +6,4 @@
                      "scribble-lib"))
 (define test-omit-paths '("example/"))
 (define scribblings '(("vestige.scrbl")))
+(define clean '("compiled" "doc" "doc/vestige"))

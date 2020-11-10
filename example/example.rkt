@@ -11,17 +11,16 @@
     (trace-define (f x) (+ 1 x))
     (f 42)
     (trace-expression (* 2 3)))
+  (define (->jsexpr v)
+    (cond [(hash? v)   (for/hasheq ([(k v) (in-hash v)])
+                         (values k (->jsexpr v)))]
+          [(list? v)   (map ->jsexpr v)]
+          [(number? v) v]
+          [else        (~a v)]))
   (define interceptor
     (match-lambda [(vector _level _str value _topic)
-                   (define (->jsexpr v)
-                     (cond [(hash? v)   (for/hasheq ([(k v) (in-hash value)])
-                                          (values k (->jsexpr v)))]
-                           [(list? v)   (map ->jsexpr v)]
-                           [(number? v) v]
-                           [else        (~a v)]))
-                   (define json (jsexpr->string (->jsexpr value)))
-                   (displayln json)]))
-  (with-intercepted-logging interceptor #:logger logger example level topic))
+                   (displayln (jsexpr->string (->jsexpr value)))]))
+  (with-intercepted-logging interceptor example #:logger logger level topic))
 
 (module explicit-example racket/base
   (require vestige/explicit)
@@ -61,13 +60,9 @@
          vestige/logger)
 
 (define (show-logged-example proc)
-  (with-intercepted-logging
-    (match-lambda [(vector _level str val _topic)
-                   (pretty-print (list str val))])
-    #:logger logger
-    proc
-    level
-    topic))
+  (define interceptor (match-lambda [(vector _level str val _topic)
+                                     (pretty-print (list str val))]))
+  (with-intercepted-logging interceptor proc #:logger logger level topic))
 
 (require 'explicit-example
          'implicit-example)

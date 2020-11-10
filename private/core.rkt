@@ -11,9 +11,8 @@
 (struct traced-procedure (traced untraced)
   #:property prop:procedure (struct-field-index traced))
 
-;; Install traced versions of a given set of procedures. The traced
-;; versions are also given, so that they can be constructed to have a
-;; nice name.
+;; Install traced version of a given procedure. The traced version is
+;; also given, so that it can be constructed to have a nice name.
 (define (install-traced-procedure id proc setter traced-proc)
   (unless (procedure? proc)
     (error 'trace
@@ -42,15 +41,15 @@
   (with-continuation-mark level-key (add1 level)
     ;; Check for tail-call => car of levels replaced, which means
     ;; that the first two new marks are not consecutive:
-    (let ([new-levels (continuation-mark-set->list (current-continuation-marks)
-                                                   level-key)])
+    (let* ([marks (current-continuation-marks)]
+           [new-levels (continuation-mark-set->list marks level-key)])
       (cond
         [(and (pair? (cdr new-levels))
               (> (car new-levels) (add1 (cadr new-levels))))
          ;; Tail call: reset level and just call real-value. (This
          ;; is in tail position to the call to `apply-traced'.) We
          ;; don't print the results, because the original call will.
-         (log-args id args kws kw-vals (sub1 level))
+         (log-args id args kws kw-vals (sub1 level) marks)
          (with-continuation-mark level-key (car levels)
            (if (null? kws)
                (apply real-value args)
@@ -60,7 +59,7 @@
          ;; that when we push the new level, we have consecutive
          ;; levels associated with the mark (i.e., set up for
          ;; tail-call detection the next time around):
-         (log-args id args kws kw-vals level)
+         (log-args id args kws kw-vals level marks)
          (with-continuation-mark level-key level
            (call-with-values
             (lambda ()
@@ -71,7 +70,7 @@
             (lambda results
               (flush-output)
               ;; Print the results:
-              (log-results id results level)
+              (log-results id results level marks)
               ;; Return the results:
               (apply values results))))]))))
 

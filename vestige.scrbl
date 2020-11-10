@@ -32,20 +32,32 @@ captured and its disposition is different.
 
  @item{Calls and results are emitted as @tech/ref{logger} events.}
 
- @item{More information is captured, including source location, and
- supplied in the value field of each logger event.
+ @item{More information is captured, including source location,
+ @racket[current-thread], and @racket[current-inexact-milliseconds].
+ The information is supplied in the ``value'' slot of each logger
+ event vector as a @racket[hasheq]; rationale:
 
  @itemlist[
 
-  @item{A tool such as @hyperlink["https://racket-mode.com"]{Racket
-  Mode} can use this information to provide a better experience, such
-  as jumping to the source of a trace, navigating the ``tree'' of
-  traces, filtering traces by thread, and so on.}
+  @item{A @racket[hasheq] is easy to serialize to other formats such
+  as JSON or association lists.}
 
-  @item{Your own program may also use a @tech/ref{log receiver} to
-  forward the information to logging systems that support a richer
-  format than plain text, for example the JSON option of Amazon
-  CloudWatch Logs.}]}]
+  @item{A @racket[hasheq] may be extended over time by adding new
+  mappings without breaking existing consumers.}]}]
+
+As a result the logging information can be used in various ways:
+
+@itemlist[
+
+ @item{A tool such as @hyperlink["https://racket-mode.com"]{Racket
+ Mode} can use this information to provide a better experience, such
+ as jumping to the source of a trace, navigating the ``tree'' of
+ traces, filtering traces by thread, and so on.}
+
+ @item{Your own program may also use a @tech/ref{log receiver} to
+ forward the information to logging systems that support a richer
+ format than plain text, for example the JSON option of Amazon
+ CloudWatch Logs.}]
 
 In other words, this package can be a drop-in replacement for
 @racketmodname[racket/trace] in the source files being traced, while
@@ -67,7 +79,7 @@ minimizing littering code with cross-cutting concerns.
 
 Because ``trace'' is already somewhat overloaded in Racket --- see
 ``calltrace'' and ``errortrace'' as well as ``racket/trace'' --- this
-package uses the name vestige which is a synonym for trace.
+package uses the name ``vestige'', a synonym for trace.
 
 
 @section{Tracing all functions in a module}
@@ -135,23 +147,24 @@ source location where it itself is used).}
 
 @defmodule[vestige/logger]
 
-This module provides several values that are useful when you want to
-make a log receiver --- either from scratch or by using
-@racket[with-intercepted-logging] or @racket[with-logging-to-port].
+This module provides several constant values that are useful when you
+want to make a @tech/ref{log receiver} receiver --- either from
+scratch or by using @racket[with-intercepted-logging] or
+@racket[with-logging-to-port].
 
 @defthing[logger logger?]{The logger to which events are sent.}
 
-@defthing[topic 'vestige-trace]{The topic for logger events.}
+@defthing[topic symbol?]{The topic for logger events.}
 
-@defthing[level 'debug]{The level for logger events.}
+@defthing[level log-level/c]{The level for logger events.}
 
 
 @section{Examples}
 
-Here we show using the values from @racketmodname[vestige/logger] to
-make a log receiver (using the convenience
-@racket[with-intercepted-logging]) that shows the logger event
-vectors:
+Here we show using the values from @racketmodname[vestige/logger] and
+the convenience function @racket[with-intercepted-logging] to make a
+@tech/ref{log receiver} that @racket[pretty-print]s the ``raw'' logger
+event vectors:
 
 @examples[#:eval (make-base-eval) #:no-prompt #:label #f
   (require racket/logging
@@ -164,13 +177,13 @@ vectors:
     (trace-define (f x) (+ 1 x))
     (f 42)
     (trace-expression (* 2 3)))
-  (with-intercepted-logging pretty-print #:logger logger example level topic)
+  (with-intercepted-logging pretty-print example #:logger logger level topic)
 ]
 
 Note: The @racket['srcloc] mapping values in this example such as
-@racket[(eval 2 0 2 1)] are a result of how these examples are
+@racketresult[(eval 2 0 2 1)] are a result of how these examples are
 evaluated to build this documentation. In real usage, when the source
-is a file, they would look something like @racket[("/path/to/file.rkt"
+is a file, they would look something like @racketresult[("/path/to/file.rkt"
 2 0 2 1)].
 
 Tip: The @racket['thread] mapping values can be especially useful when
@@ -182,7 +195,7 @@ in
 @hyperlink["https://www.greghendershott.com/2018/11/thread-names.html"]{this
 blog post}.
 
-Here is the example modified to convert the logger event value's
+Here is the example modified to convert the logger event value from a
 @racket[hasheq] to JSON:
 
 @examples[#:eval (make-base-eval) #:no-prompt #:label #f
@@ -196,14 +209,14 @@ Here is the example modified to convert the logger event value's
     (trace-define (f x) (+ 1 x))
     (f 42)
     (trace-expression (* 2 3)))
+  (define (->jsexpr v)
+    (cond [(hash? v)   (for/hasheq ([(k v) (in-hash v)])
+                         (values k (->jsexpr v)))]
+          [(list? v)   (map ->jsexpr v)]
+          [(number? v) v]
+          [else        (~a v)]))
   (define interceptor
-    (match-lambda [(vector _level _str value _topic)
-                   (define (->jsexpr v)
-                     (cond [(hash? v)   (for/hasheq ([(k v) (in-hash value)])
-                                          (values k (->jsexpr v)))]
-                           [(list? v)   (map ->jsexpr v)]
-                           [(number? v) v]
-                           [else        (~a v)]))
+    (match-lambda [(vector \_level _str value _topic)
                    (displayln (jsexpr->string (->jsexpr value)))]))
-  (with-intercepted-logging interceptor #:logger logger example level topic)
+  (with-intercepted-logging interceptor example #:logger logger level topic)
 ]
