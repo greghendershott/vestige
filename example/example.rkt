@@ -35,9 +35,10 @@
     (trace-define (hello x) (+ (bar x)))
     (hello 42)
     (trace-expression (void))
-    (trace-expression (+ 1 2))
-    (trace-expression (values 1 2 3))
-    (trace-expression (+ 1 (trace-expression (+ 2 3))))))
+    ;;(trace-expression (+ 1 2))
+    ;;(trace-expression (values 1 2 3))
+    ;;(trace-expression (+ 1 (trace-expression (+ 2 3))))
+    ))
 
 (module implicit-example racket/base
   (require vestige)
@@ -51,8 +52,9 @@
     (define (hello x) (+ (bar x)))
     (hello 42)
     (trace-expression (void))
-    (trace-expression (+ 1 2))
-    (trace-expression (values 1 2 3))))
+    ;;(trace-expression (+ 1 2))
+    ;;(trace-expression (values 1 2 3))
+    ))
 
 (require racket/logging
          racket/match
@@ -67,5 +69,5 @@
 (require 'explicit-example
          'implicit-example)
 
-(show-logged-example implicit-example)
 (show-logged-example explicit-example)
+(show-logged-example implicit-example)

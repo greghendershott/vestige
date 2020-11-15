@@ -1,22 +1,22 @@
 #lang racket/base
 
-(require racket/format)
+(provide srcloc->list
+         stx->srcloc-list)
 
-(provide stx->srcloc)
+(define (srcloc->list srcloc)
+  (list (clean-source (srcloc-source srcloc))
+        (srcloc-line srcloc)
+        (srcloc-column srcloc)
+        (srcloc-position srcloc)
+        (srcloc-span srcloc)))
 
-(define (stx->srcloc stx)
-  (define src (syntax-source stx))
-  (list (or (and src (path? src) (path->string src))
-            src)
+(define (stx->srcloc-list stx)
+  (list (clean-source (syntax-source stx))
         (syntax-line stx)
         (syntax-column stx)
         (syntax-position stx)
-        (syntax-span stx))
-  #;
-  (~a #:separator ":"
-      (or (and src (path? src) (path->string src))
-          src)
-      (syntax-line stx)
-      (syntax-column stx)
-      (syntax-position stx)
-      (syntax-span stx)))
+        (syntax-span stx)))
+
+(define (clean-source src)
+  (or (and src (path? src) (path->string src))
+      src))

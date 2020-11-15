@@ -49,7 +49,7 @@
          ;; Tail call: reset level and just call real-value. (This
          ;; is in tail position to the call to `apply-traced'.) We
          ;; don't print the results, because the original call will.
-         (log-args id args kws kw-vals (sub1 level) marks)
+         (log-args id args kws kw-vals (sub1 level) (caller marks))
          (with-continuation-mark level-key (car levels)
            (if (null? kws)
                (apply real-value args)
@@ -59,19 +59,17 @@
          ;; that when we push the new level, we have consecutive
          ;; levels associated with the mark (i.e., set up for
          ;; tail-call detection the next time around):
-         (log-args id args kws kw-vals level marks)
+         (log-args id args kws kw-vals level (caller marks))
          (with-continuation-mark level-key level
            (call-with-values
-            (lambda ()
+            (λ ()
               (with-continuation-mark level-key (add1 level)
                 (if (null? kws)
                     (apply real-value args)
                     (keyword-apply real-value kws kw-vals args))))
-            (lambda results
+            (λ results
               (flush-output)
-              ;; Print the results:
-              (log-results id results level marks)
-              ;; Return the results:
+              (log-results id results level (caller marks))
               (apply values results))))]))))
 
 (define-syntax (trace-one-procedure stx)
@@ -81,16 +79,27 @@
                           (datum->syntax #'id (string->symbol tid) #f))]
                    [kw-proc
                     (quasisyntax/loc #'id
-                      (lambda (kws vals . args)
+                      (λ (kws vals . args)
                         (apply-traced #'id args kws vals real-value)))]
                    [plain-proc
                     (quasisyntax/loc #'id
-                      (lambda args
+                      (λ args
                         (apply-traced #'id args null null real-value)))])
        #'(install-traced-procedure
           'id
           id
-          (lambda (v) (set! id v))
+          (λ (v) (set! id v))
           (let* ([real-value id]
                  [tid (make-keyword-procedure kw-proc plain-proc)])
             tid)))]))
+
+(define (caller marks)
+  (for/or ([id+srcloc (in-list (continuation-mark-set->context marks))])
+    (define id (car id+srcloc))
+    (define srcloc (cdr id+srcloc))
+    (and id
+         (not (eq? id 'apply-traced))
+         srcloc
+         (not (equal? (srcloc-source srcloc)
+                      (syntax-source #'us)))
+         srcloc)))
