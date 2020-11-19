@@ -1,22 +1,37 @@
 #lang racket/base
 
-(provide srcloc->list
-         stx->srcloc-list)
+(require racket/format
+         racket/match)
 
-(define (srcloc->list srcloc)
-  (list (clean-source (srcloc-source srcloc))
-        (srcloc-line srcloc)
-        (srcloc-column srcloc)
-        (srcloc-position srcloc)
-        (srcloc-span srcloc)))
+(provide ->srcloc-as-list)
 
-(define (stx->srcloc-list stx)
-  (list (clean-source (syntax-source stx))
-        (syntax-line stx)
-        (syntax-column stx)
-        (syntax-position stx)
-        (syntax-span stx)))
+(define (->srcloc-as-list v)
+  (match v
+    [(? syntax? stx)
+     (list (clean-source (syntax-source stx))
+           (syntax-line stx)
+           (syntax-column stx)
+           (syntax-position stx)
+           (syntax-span stx))]
+    [(or (vector (app clean-source src) line column position span)
+         (srcloc (app clean-source src) line column position span))
+     (list src line column position span)]
+    [_ (raise-argument-error '->srcloc-as-list
+                             "syntax? or srcloc as list? or vector?"
+                             v)]))
 
-(define (clean-source src)
-  (or (and src (path? src) (path->string src))
-      src))
+(define (clean-source source)
+  (match source
+    [(? path? p) (path->string p)]
+    [(? path-string? s) s]
+    [(? symbol? s) (~a s)]
+    [(? procedure? (app object-name s)) #:when s (~a s)]
+    [_ #f]))
+
+(module+ test
+  (require rackunit)
+  (check-equal? (clean-source (build-path "foo")) "foo")
+  (check-equal? (clean-source "foo") "foo")
+  (check-equal? (clean-source 'foo) "foo")
+  (check-equal? (clean-source clean-source) "clean-source")
+  (check-false (clean-source 42)))

@@ -1,8 +1,6 @@
 #lang racket/base
 
 (require (for-syntax racket/base
-                     racket/format
-                     racket/syntax
                      syntax/define
                      syntax/name
                      syntax/parse
@@ -29,26 +27,35 @@
               ...)]))
 
 (define-syntax (trace-define stx)
-  (syntax-case stx ()
-    [(_ e ...)
-     (let-values ([(name def) (normalize-definition stx #'lambda #t #t)])
-       #`(begin #,(quasisyntax/loc stx (define #,name #,def)) (trace #,name)))]))
+  (let-values ([(name def) (normalize-definition stx #'lambda #t #t)])
+    #`(begin #,(quasisyntax/loc stx (define #,name #,def))
+             (trace #,name))))
 
 (define-syntax (trace-let stx)
   (syntax-parse stx
+    ;; "Named `let`"
     [(_ name:id ([id:id e:expr] ...) body ...+)
-     #'((letrec ([name (lambda (id ...) body ...)]) (trace name) name) e ...)]
-    [(_ ([id:id e:expr] ...) body ...+)
-     #'(let ([id e] ...) body ...)]))
+     #`(let ()
+         (trace-define (name id ...) body ...)
+         #,(syntax/loc stx (name e ...)))]
+    #;
+    [(_ name:id ([id:id e:expr] ...) body ...+)
+     #`(#,(quasisyntax/loc stx
+            (letrec ([name (lambda (id ...) body ...)])
+              (trace name)
+              name))
+        e ...)]
+    ;; Normal `let`
+    [_ stx]))
 
 ;; Note: Although it might seem silly to handle this with trace-let,
 ;; as opposed to simply logging the expression source and value
 ;; directly, the advantage is that the level will be correct. As a
 ;; result if some tool is indenting and/or folding by level, this will
-;; appear naturally in relation to other trace-x forms (including
-;; nested uses of trace-expression). We use expression->identifier to
-;; synthesize an identifier with a syntax-property attached, holding
-;; the datum of #'e datum for use when logging.
+;; appear naturally in relation to other trace-x forms -- including
+;; nested uses of trace-expression. We use expression->identifier to
+;; synthesize an identifier with a syntax property holding the datum
+;; of #'e for use when logging.
 (define-syntax (trace-expression stx)
   (syntax-parse stx
     [(_ e:expr)

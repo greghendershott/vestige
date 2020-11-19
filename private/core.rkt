@@ -1,10 +1,13 @@
 #lang racket/base
 
 (require (for-syntax racket/base
-                     syntax/parse)
+                     syntax/parse
+                     "srcloc.rkt")
+         racket/match
          "logger.rkt")
 
-(provide trace-one-procedure)
+(provide trace-one-procedure
+         tracing-#%app)
 
 ;; A traced-procedure struct instance acts like a procedure, but preserves
 ;; the original, too.
@@ -28,7 +31,7 @@
              proc))))
 
 ;; Key used for a continuation mark to indicate the nesting depth.
-(define level-key (gensym))
+(define level-key (make-continuation-mark-key 'level))
 
 ;; Apply a traced procedure to arguments, printing arguments and
 ;; results. We set and inspect the level-key continuation mark a few
@@ -42,14 +45,16 @@
     ;; Check for tail-call => car of levels replaced, which means
     ;; that the first two new marks are not consecutive:
     (let* ([marks (current-continuation-marks)]
-           [new-levels (continuation-mark-set->list marks level-key)])
+           [new-levels (continuation-mark-set->list marks level-key)]
+           [caller (caller-srcloc marks)]
+           [context (context-srcloc marks)])
       (cond
         [(and (pair? (cdr new-levels))
               (> (car new-levels) (add1 (cadr new-levels))))
          ;; Tail call: reset level and just call real-value. (This
          ;; is in tail position to the call to `apply-traced'.) We
          ;; don't print the results, because the original call will.
-         (log-args id args kws kw-vals (sub1 level) (caller marks))
+         (log-args id args kws kw-vals (sub1 level) caller context)
          (with-continuation-mark level-key (car levels)
            (if (null? kws)
                (apply real-value args)
@@ -59,7 +64,7 @@
          ;; that when we push the new level, we have consecutive
          ;; levels associated with the mark (i.e., set up for
          ;; tail-call detection the next time around):
-         (log-args id args kws kw-vals level (caller marks))
+         (log-args id args kws kw-vals level caller context)
          (with-continuation-mark level-key level
            (call-with-values
             (λ ()
@@ -69,7 +74,7 @@
                     (keyword-apply real-value kws kw-vals args))))
             (λ results
               (flush-output)
-              (log-results id results level (caller marks))
+              (log-results id results level caller context)
               (apply values results))))]))))
 
 (define-syntax (trace-one-procedure stx)
@@ -93,13 +98,37 @@
                  [tid (make-keyword-procedure kw-proc plain-proc)])
             tid)))]))
 
-(define (caller marks)
+;;; srcloc of caller -- assuming called from a module using our
+;;; tracing-#%app.
+
+(define caller-key (make-continuation-mark-key 'caller))
+
+(define-syntax (tracing-#%app stx)
+  (syntax-parse stx
+    [(_ x:expr more ...)
+     #:with loc #`(vector #,@(->srcloc-as-list stx))
+     (syntax/loc stx
+       (with-continuation-mark caller-key loc
+         (#%app x more ...)))]))
+
+(define (caller-srcloc marks)
+  (continuation-mark-set-first marks caller-key))
+
+;;; srcloc of context
+;;;
+;; This will never be as precise as the calling expression. Instead, a
+;; span that is the body of some function, somewhere within which is
+;; the call site. Although this is not precise enough for e.g. a tool
+;; that wants to show the call "in situ" similar to a step debugger,
+;; it is a useful fallback. Furthermore it's more than adequate for
+;; devops logging purposes, and anyway in those cases our
+;; tracing-#%app might be avoided for peformance.
+(define (context-srcloc marks)
   (for/or ([id+srcloc (in-list (continuation-mark-set->context marks))])
-    (define id (car id+srcloc))
-    (define srcloc (cdr id+srcloc))
-    (and id
-         (not (eq? id 'apply-traced))
-         srcloc
-         (not (equal? (srcloc-source srcloc)
-                      (syntax-source #'us)))
-         srcloc)))
+    (match id+srcloc
+      [(cons _id (and sl (struct* srcloc ([source src]))))
+       #:when (and (not (equal? src (syntax-source #'this-file)))
+                   (path-string? src)
+                   (complete-path? src))
+       sl]
+      [_ #f])))
