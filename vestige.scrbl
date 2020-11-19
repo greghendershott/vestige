@@ -11,8 +11,6 @@
    (require (for-label racket/base
                        racket/trace)
             scribble/manual)
-   (define trace-id (racket trace))
-   (define untrace-id (racket untrace))
    (define trace-define-id (racket trace-define))
    (define trace-lambda-id (racket trace-lambda))
    (define trace-let-id (racket trace-let))
@@ -35,11 +33,11 @@ code with cross-cutting concerns.
 
 @subsection{What it does differently from @racketmodname[racket/trace]}
 
-This package mimics the tracing forms of @racketmodname[racket/trace]
-and adds a @racket[trace-expression] form. Although the technique used
-to capture calls and results is similar to that used in
-@racketmodname[racket/trace], additional information is captured and
-its disposition is different:
+This package mimics some of the tracing forms of
+@racketmodname[racket/trace] and adds a @racket[trace-expression]
+form. Although the basic technique used to capture calls, results, and
+levels is similar to that used in @racketmodname[racket/trace],
+additional information is captured and its disposition is different:
 
 @itemlist[
 
@@ -187,20 +185,6 @@ of the call site, and @|#%app-id| is that of
 
 Using this is optional. It imposes some overhead but allows call site
 information to be exact.}
-
-@subsection{Ad hoc tracing in REPL}
-
-@defform[(trace id ...)]{Like @|trace-id|.
-
-This form is useful in a REPL to do ad hoc tracing.
-
-In a source file it is usually preferable to use one of the other
-tracing forms because they supply source location for the function or
-expression being traced (whereas @racket[trace] can only record the
-source location where it itself is used).}
-
-@defform[(untrace id ...)]{Like @|untrace-id|.}
-
 
 @section{Using a log receiver}
 

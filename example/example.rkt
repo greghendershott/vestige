@@ -19,8 +19,7 @@
   (require vestige/explicit)
   (provide explicit-example)
   (define (explicit-example)
-    (define (baz x) x)
-    (trace baz) ;plain trace will show srcloc for trace site not definition site
+    (trace-define (baz x) x)
     (trace-define (foo x #:kw kw)
       (baz x)
       (trace-let loop ([x 4]) (if (zero? x) (baz x) (loop (sub1 x)))))
@@ -62,7 +61,7 @@
 (require 'explicit-example
          'implicit-example)
 
-;;(show-logged-example explicit-example)
+(show-logged-example explicit-example)
 ;;(show-logged-example implicit-example)
 
 (module m racket/base
@@ -75,4 +74,4 @@
 
 (require 'm)
 ;;(require vestige/explicit) ;for #%app
-(show-logged-example (λ () (f 2)))
+;;(show-logged-example (λ () (f 2)))
