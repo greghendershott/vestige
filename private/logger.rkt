@@ -24,32 +24,31 @@
                  data
                  #f)))
 
-
-(define (log-args id args kws kw-vals level caller context)
-  (define-values (str caller*)
+(define (log-args id args kws kw-vals level -caller context)
+  (define-values (str caller)
     (match (expression-identifier->string id)
-      ;; Traced expressions: 1. Use the expression string. 2. Ignore
-      ;; caller loc, using defined loc for that (it will be more
-      ;; precise when caller loc was obtained from cms->context).
+      ;; Traced expressions: 1. Show the expression string. 2. Use
+      ;; definition loc as "caller" loc.
       [(? string? v)
        (values v id)]
-      ;; Traced function calls:
+      ;; Traced function calls: 1. Show calling the function with
+      ;; plain and keyword args. Use supplied caller loc as-is.
       [_
        (values (~a `(,(syntax-e id) ,@args ,@(append-map list kws kw-vals)))
-               caller)]))
+               -caller)]))
   (log! (~a (make-string (add1 level) #\>) " " str)
-        (make-logger-event-value #t id str level caller* context)))
+        (make-logger-event-value #t id str level caller context)))
 
-(define (log-results id results level caller context)
+(define (log-results id results level -caller context)
   (define str
     (~a (match results
           [(list)   "#<void>"]
           [(list v) (~v v)]
           [vs       (~s (cons 'values vs))])))
-  ;; Traced expressions: Always use def loc for caller loc.
-  (define caller* (if (expression-identifier->string id) id caller))
+  ;; Traced expressions: Use definition loc as "caller" loc.
+  (define caller (if (expression-identifier->string id) id -caller))
   (log! (~a (make-string (add1 level) #\<) " " str)
-        (make-logger-event-value #f id str level caller* context)))
+        (make-logger-event-value #f id str level caller context)))
 
 ;; -> jsexpr?
 (define (make-logger-event-value call? id str level caller context)

@@ -24,15 +24,15 @@
 ;;
 ;; Although that means the symbol value will be identical for
 ;; identical expressions, we don't really care because the intended
-;; use case the identifer for a named let, so it will be scoped by
-;; that.
+;; use case is to create the identifer for a named let, so it will be
+;; scoped by that.
 (define (expression->identifier stx)
   (define as-str (~a (syntax->datum stx)))
   (define identifier (format-id stx as-str #:source stx))
   (syntax-property identifier
                    property-key
                    as-str
-                   #f))
+                   #t)) ;preserved
 
 (define (expression-identifier->string stx)
   (syntax-property stx property-key))
