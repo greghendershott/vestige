@@ -6,8 +6,24 @@
          racket/match
          "logger.rkt")
 
-(provide apply-traced
+(provide wrap-with-tracing
          tracing-#%app)
+
+;; Given a procedure and identifier syntax, wrap the procedure in one
+;; which calls apply-traced with plain or keyword arguments. The plain
+;; vs. keyword complexity is so we can show keywords next to keyword
+;; argument values, e.g. "(foo #:kw 3)" instead of "(foo 3)".
+(define (wrap-with-tracing proc id-stx)
+  (define arity (procedure-arity proc))
+  (define-values (required allowed) (procedure-keywords proc))
+  (define kw-proc (λ (kws vals . args)
+                    (apply-traced id-stx proc args kws vals)))
+  (define plain-proc (λ args
+                       (apply-traced id-stx proc args null null)))
+  (define traced-proc (make-keyword-procedure kw-proc plain-proc))
+  (define reduced-proc (procedure-reduce-keyword-arity traced-proc arity required allowed))
+  (define renamed-proc (procedure-rename reduced-proc (syntax-e id-stx)))
+  renamed-proc)
 
 ;; Key used for a continuation mark to indicate the nesting depth.
 (define level-key (make-continuation-mark-key 'level))
@@ -27,12 +43,11 @@
     ;; Check for tail-call => car of levels replaced, which means
     ;; that the first two new marks are not consecutive:
     (let* ([marks (current-continuation-marks)]
-           [new-levels (continuation-mark-set->list marks level-key)]
            [caller (caller-srcloc marks)]
            [context (context-srcloc marks)])
-      (cond
-        [(and (pair? (cdr new-levels))
-              (> (car new-levels) (add1 (cadr new-levels))))
+      (match (continuation-mark-set->list marks level-key)
+        [(list* this next _)
+         #:when (> this (add1 next))
          ;; Tail call: reset level and just call untraced proc. (This
          ;; is in tail position to the call to `apply-traced'.) We
          ;; don't print the results, because the original call will.
@@ -41,7 +56,7 @@
            (if (null? kws)
                (apply untraced-proc args)
                (keyword-apply untraced-proc kws kw-vals args)))]
-        [else
+        [_
          ;; Not a tail call; push the old level, again, to ensure
          ;; that when we push the new level, we have consecutive
          ;; levels associated with the mark (i.e., set up for
@@ -68,9 +83,8 @@
 (define-syntax (tracing-#%app stx)
   (syntax-parse stx
     [(_ x:expr more ...)
-     #:with loc #`(vector #,@(->srcloc-as-list stx))
-     (syntax/loc stx
-       (with-continuation-mark caller-key loc
+     (quasisyntax/loc stx
+       (with-continuation-mark caller-key (vector #,@(->srcloc-as-list stx))
          (#%app x more ...)))]))
 
 (define (caller-srcloc marks)
@@ -89,8 +103,12 @@
   (for/or ([id+srcloc (in-list (continuation-mark-set->context marks))])
     (match id+srcloc
       [(cons _id (and sl (struct* srcloc ([source src]))))
-       #:when (and (not (equal? src (syntax-source #'this-file)))
-                   (path-string? src)
-                   (complete-path? src))
+       #:when (and (path-string? src)
+                   (complete-path? src)
+                   (not (equal? (filename-directory src)
+                                (filename-directory (syntax-source #'this-file)))))
        sl]
       [_ #f])))
+
+(define (filename-directory p)
+  (car (call-with-values (λ () (split-path p)) list)))

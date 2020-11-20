@@ -38,7 +38,7 @@
        (values (~a `(,(syntax-e id) ,@args ,@(append-map list kws kw-vals)))
                caller)]))
   (log! (~a (make-string (add1 level) #\>) " " str)
-        (make-logger-event-value 'call id str level caller* context)))
+        (make-logger-event-value #t id str level caller* context)))
 
 (define (log-results id results level caller context)
   (define str
@@ -49,10 +49,10 @@
   ;; Traced expressions: Always use def loc for caller loc.
   (define caller* (if (expression-identifier->string id) id caller))
   (log! (~a (make-string (add1 level) #\<) " " str)
-        (make-logger-event-value 'results id str level caller* context)))
+        (make-logger-event-value #f id str level caller* context)))
 
 ;; -> jsexpr?
-(define (make-logger-event-value kind id str level caller context)
+(define (make-logger-event-value call? id str level caller context)
   ;; We use hasheq because it is trivial to transform to json via
   ;; jsexpr->string, or to an association list, or whatever.
   ;;
@@ -63,12 +63,12 @@
   ;; in a way that seems harmless.
   ;;
   ;; Note conversion of all mapping values to satisfy jsexpr?.
-  (hasheq 'kind      (~a kind)
-          'name      (~a (syntax-e id))
-          'level     level
-          'show      str
-          'def-site  (->srcloc-as-list id)
-          'call-site (and caller (->srcloc-as-list caller))
-          'context   (and context (->srcloc-as-list context))
-          'thread    (~a (object-name (current-thread)))
-          'msec      (current-inexact-milliseconds)))
+  (hasheq 'call       call?
+          'name       (~a (syntax-e id))
+          'level      level
+          'show       str
+          'definition (->srcloc-as-list id)
+          'caller     (and caller (->srcloc-as-list caller))
+          'context    (and context (->srcloc-as-list context))
+          'thread     (~a (object-name (current-thread)))
+          'msec       (current-inexact-milliseconds)))

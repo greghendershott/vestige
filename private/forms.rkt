@@ -9,8 +9,9 @@
          "core.rkt")
 
 ;; NOTE: These surface macros are fairly different from racket/trace.
-;; We don't support the mutating `trace` and `untrace`, and so we
-;; don't handle everything with that.
+;; We don't support mutating definitions with `trace` and `untrace`.
+;; Instead we define things as traced in the first place. The core
+;; form here is trace-lambda.
 
 (provide trace-lambda
          (rename-out [trace-lambda trace-λ])
@@ -30,19 +31,7 @@
                    #:defaults ([ID (datum->syntax stx (infer-name-or-error) stx)]))
         ARGS:formals BODY:expr ...)
      (syntax/loc stx
-       (let*-values ([(proc) (λ ARGS BODY ...)]
-                     [(arity) (procedure-arity proc)]
-                     [(required allowed) (procedure-keywords proc)]
-                     [(kw-proc) (λ (kws vals . args)
-                                  (apply-traced #'ID proc args kws vals))]
-                     [(plain-proc) (λ args
-                                     (apply-traced #'ID proc args null null))]
-                     [(traced-proc) (make-keyword-procedure kw-proc plain-proc)])
-         (procedure-rename (procedure-reduce-keyword-arity traced-proc
-                                                           arity
-                                                           required
-                                                           allowed)
-                           'ID)))]))
+       (wrap-with-tracing (λ ARGS BODY ...) #'ID))]))
 
 (define-syntax (trace-define stx)
   (define-values (name def) (normalize-definition stx #'trace-lambda #t #t))
@@ -63,7 +52,7 @@
     ;; Normal `let`
     [_ stx]))
 
-;; Note: Although it might seem silly to handle this with trace-let,
+;; Note: Although it might seem silly to handle this with trace-lambda,
 ;; as opposed to simply logging the expression source and value
 ;; directly, the advantage is that the level will be correct. As a
 ;; result if some tool is indenting and/or folding by level, this will
@@ -75,17 +64,22 @@
   (syntax-parse stx
     [(_ e:expr)
      (with-syntax ([id (expression->identifier #'e)])
-       (syntax/loc stx (trace-let id () e)))]))
+       (syntax/loc stx
+         ((trace-lambda #:name id () e))))]))
 
-(module+ m
+(module+ test
   (require racket/logging
-           racket/pretty
+           racket/match
+           rackunit
            "logger.rkt")
-  (with-intercepted-logging pretty-print
+  (with-intercepted-logging
+    (match-lambda [(vector _level
+                           _message
+                           (hash-table ['call call?] ['name name] ['show show])
+                           _topic)
+                   (check-equal? name "(+ 1 2)")
+                   (check-equal? show (if call? "(+ 1 2)" "3"))])
     (λ ()
-      (define f (trace-lambda (#:x x y) (+ x y)))
-      (f #:x 1 2)
-      (trace-define (g #:x x y) (+ x y))
-      (g #:x 4 5))
+      (trace-expression (+ 1 2)))
     #:logger logger level topic))
 
