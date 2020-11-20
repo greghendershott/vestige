@@ -36,3 +36,20 @@
 
 (define (expression-identifier->string stx)
   (syntax-property stx property-key))
+
+(module+ test
+  (require rackunit)
+  (define e #'(+ 1 2))
+  (define id (expression->identifier e))
+  (check-equal? (syntax-e id) '|(+ 1 2)|
+                "identifier has expected symbolic value")
+  (check-equal? (expression-identifier->string id) "(+ 1 2)"
+                "identifer has expected syntax property value")
+  (for ([f (in-list (list syntax-source
+                          syntax-line
+                          syntax-column
+                          syntax-position
+                          syntax-span))])
+    (check-equal? (f e) (f id)
+                  (~a "expression and identifier syntax objects have equal "
+                      (object-name f)))))
