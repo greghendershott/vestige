@@ -4,7 +4,8 @@
          racket/list
          racket/match
          "srcloc.rkt"
-         "expression-id.rkt")
+         "expression-id.rkt"
+         "signature.rkt")
 
 (provide log-args
          log-results
@@ -67,6 +68,7 @@
           'level      level
           'show       str
           'definition (->srcloc-as-list id)
+          'signature  (get-signature-stx-prop id)
           'caller     (and caller (->srcloc-as-list caller))
           'context    (and context (->srcloc-as-list context))
           'thread     (~a (object-name (current-thread)))
