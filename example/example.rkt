@@ -80,3 +80,19 @@
 (require 'm)
 ;;(require vestige/explicit) ;for #%app
 ;;(show-logged-example (λ () (f 2)))
+
+
+(module thread-example racket/base
+  (require vestige)
+  (define (foo x) x)
+  (define (thread-example)
+    (define (t1-thunk) (for ([n 2]) (foo n) (sleep 0)))
+    (define (t2-thunk) (for ([n 2]) (foo n) (sleep 0)))
+    (define t1 (thread t1-thunk))
+    (define t2 (thread t2-thunk))
+    (for (#:when (and (thread-running? t1)
+                      (thread-running? t2)))
+      (sleep 1)))
+  (provide thread-example))
+(require 'thread-example)
+(show-logged-example thread-example)
