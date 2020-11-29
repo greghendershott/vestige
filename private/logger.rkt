@@ -25,20 +25,22 @@
                  data
                  #f)))
 
-(define (log-args id args kws kw-vals level -caller context)
-  (define-values (str caller)
+(define (log-args id -tail? args kws kw-vals level -caller context)
+  (define-values (str caller tail?)
     (match (expression-identifier->string id)
       ;; Traced expressions: 1. Show the expression string. 2. Use
-      ;; definition loc as "caller" loc.
+      ;; definition loc as "caller" loc. 3. Disregard any tail-call
+      ;; flag.
       [(? string? v)
-       (values v id)]
+       (values v id #f)]
       ;; Traced function calls: 1. Show calling the function with
       ;; plain and keyword args. Use supplied caller loc as-is.
       [_
        (values (~a `(,(syntax-e id) ,@args ,@(append-map list kws kw-vals)))
-               -caller)]))
+               -caller
+               -tail?)]))
   (log! (~a (make-string (add1 level) #\>) " " str)
-        (make-logger-event-value #t id str level caller context)))
+        (make-logger-event-value #t tail? id str level caller context)))
 
 (define (log-results id results level -caller context)
   (define str
@@ -49,10 +51,10 @@
   ;; Traced expressions: Use definition loc as "caller" loc.
   (define caller (if (expression-identifier->string id) id -caller))
   (log! (~a (make-string (add1 level) #\<) " " str)
-        (make-logger-event-value #f id str level caller context)))
+        (make-logger-event-value #f #f id str level caller context)))
 
 ;; -> jsexpr?
-(define (make-logger-event-value call? id str level caller context)
+(define (make-logger-event-value call? tail? id str level caller context)
   ;; We use hasheq because it is trivial to transform to json via
   ;; jsexpr->string, or to an association list, or whatever.
   ;;
@@ -64,6 +66,7 @@
   ;;
   ;; Note conversion of all mapping values to satisfy jsexpr?.
   (hasheq 'call       call?
+          'tail       tail?
           'name       (~a (syntax-e id))
           'level      level
           'show       str

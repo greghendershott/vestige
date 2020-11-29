@@ -51,7 +51,7 @@
          ;; Tail call: reset level and just call untraced proc. (This
          ;; is in tail position to the call to `apply-traced'.) We
          ;; don't print the results, because the original call will.
-         (log-args id-stx args kws kw-vals (sub1 level) caller context)
+         (log-args id-stx #t args kws kw-vals (sub1 level) caller context)
          (with-continuation-mark level-key (car levels)
            (if (null? kws)
                (apply untraced-proc args)
@@ -61,7 +61,7 @@
          ;; that when we push the new level, we have consecutive
          ;; levels associated with the mark (i.e., set up for
          ;; tail-call detection the next time around):
-         (log-args id-stx args kws kw-vals level caller context)
+         (log-args id-stx #f args kws kw-vals level caller context)
          (with-continuation-mark level-key level
            (call-with-values
             (λ ()
