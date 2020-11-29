@@ -243,9 +243,11 @@ has at least the following mappings.
 @(define-syntax-rule (defmapping key type pre-contents ...)
    (defthing #:kind "mapping" #:link-target? #f key type pre-contents ...))
 
-@defmapping['call boolean?]{When the event represents the evaluation
-of a function call or expression, @racket[#t], else @racket[#f] for a
-result.}
+@defmapping['call boolean?]{True when the event represents the
+evaluation of a function call or expression.}
+
+@defmapping['tail boolean?]{True when @racket[call] is true and this
+is a tail call.}
 
 @defmapping['name string?]{The name of the function being traced, or,
 the datum of the expression being traced.}
@@ -291,6 +293,12 @@ the convenience function @racket[with-intercepted-logging] to make a
 @tech/ref{log receiver} that @racket[pretty-print]s the ``raw'' logger
 event vectors:
 
+@margin-note{Note: The source location values in this example such as
+ @racketresult[(eval 2 0 2 1)] are a result of how these examples are
+ evaluated to build this documentation. In real usage, when the source
+ is a file, they would look something like
+ @racketresult[("/path/to/file.rkt" 2 0 2 1)].}
+
 @examples[#:eval (make-base-eval) #:no-prompt #:label #f
   (require racket/logging
            racket/pretty
@@ -304,21 +312,6 @@ event vectors:
   (with-intercepted-logging pretty-print example
     #:logger logger level topic)
 ]
-
-Note: The source location values for @racket['defined] and
-@racket['caller] in this example such as @racketresult[(eval 2 0 2 1)]
-are a result of how these examples are evaluated to build this
-documentation. In real usage, when the source is a file, they would
-look something like @racketresult[("/path/to/file.rkt" 2 0 2 1)].
-
-Tip: The @racket['thread] mapping values can be especially useful when
-you keep in mind that the @racket[object-name] of a Racket
-@tech/ref{thread descriptor} defaults to the name of its thunk
-procedure. You can even use @racket[procedure-rename] to give each
-thread thunk a unique name related to a ``job'' or ``request'', as
-discussed in
-@hyperlink["https://www.greghendershott.com/2018/11/thread-names.html"]{this
-blog post}.
 
 Here is the example modified to convert the logger event value from a
 @racket[hasheq] to JSON:
@@ -340,3 +333,15 @@ Here is the example modified to convert the logger event value from a
   (with-intercepted-logging interceptor example
     #:logger logger level topic)
 ]
+
+@subsection{Tip: Naming threads}
+
+The @racket['thread] mapping values can be especially useful when you
+keep in mind that the @racket[object-name] of a Racket
+@tech/ref{thread descriptor} defaults to the name of its thunk
+procedure. You can even use @racket[procedure-rename] to give each
+thread thunk a unique name related to a ``job'' or ``request'', as
+discussed in
+@hyperlink["https://www.greghendershott.com/2018/11/thread-names.html"]{this
+blog post}.
+
