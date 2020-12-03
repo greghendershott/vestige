@@ -48,9 +48,9 @@
     (define (hello x) (+ (bar x)))
     (hello 42)
     (trace-expression (void))
-    ;;(trace-expression (+ 1 2))
-    ;;(trace-expression (values 1 2 3))
-    ))
+    (trace-expression (+ 1 2))
+    (define alice (lambda (x) x))
+    (alice 34)))
 
 (require racket/logging
          racket/match
