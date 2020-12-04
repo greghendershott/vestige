@@ -20,20 +20,26 @@
   (provide explicit-example)
   (define (explicit-example)
     (trace-define (baz x) x)
-    (trace-define (foo x #:kw kw)
+    (trace-define (foo x
+                       #:kw kw
+                       #:keyword [keyword 42])
       (baz x)
       (trace-let loop ([x 4])
         (if (zero? x) (baz x) (loop (sub1 x)))))
     (trace-define (bar x) (+ (foo x #:kw #f) 1))
     (trace-define (hello x) (+ (bar x)))
     (hello 42)
+    (trace-define ((curried a) b)
+      (+ a b))
+    (trace-define uncurried (curried 99))
+    (uncurried 1)
     (trace-expression (void))
-    ;;(trace-expression (+ 1 2))
-    ;;(trace-expression (values 1 2 3))
     (define x 42)
     (define y 1)
     (trace-expression (+ x (trace-expression (+ y 3))))
-    ))
+    (trace-expression (+ 1 2))
+    (define alice (lambda (x) x))
+    (alice 34))) ;another tail call
 
 (module implicit-example racket/base
   (require vestige)
@@ -47,10 +53,14 @@
     (define (bar x) (+ (foo x) 1))
     (define (hello x) (+ (bar x)))
     (hello 42)
+    ;; (define ((curried x) y)
+    ;;   (+ x y))
+    ;; (define uncurried (curried 99))
+    ;; (uncurried 1)
     (trace-expression (void))
     (trace-expression (+ 1 2))
     (define alice (lambda (x) x))
-    (alice 34)))
+    (alice 34))) ;another tail call
 
 (require racket/logging
          racket/match
@@ -64,23 +74,8 @@
 
 (require 'explicit-example
          'implicit-example)
-
 (show-logged-example explicit-example)
 (show-logged-example implicit-example)
-
-(module m racket/base
-  (require vestige/explicit)
-  (trace-define (f x)
-    (trace-let loop ([x x])
-      (if (zero? x)
-          x
-          (loop (sub1 x)))))
-  (provide f))
-
-(require 'm)
-;;(require vestige/explicit) ;for #%app
-;;(show-logged-example (λ () (f 2)))
-
 
 (module thread-example racket/base
   (require vestige)
