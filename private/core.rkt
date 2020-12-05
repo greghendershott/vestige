@@ -84,7 +84,7 @@
   (syntax-parse stx
     [(_ x:expr more ...)
      (quasisyntax/loc stx
-       (with-continuation-mark caller-key (vector #,@(->srcloc-as-list stx))
+       (with-continuation-mark caller-key '#(#,@(->srcloc-as-list stx))
          (#%app x more ...)))]))
 
 (define (caller-srcloc marks)
