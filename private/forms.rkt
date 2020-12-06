@@ -156,4 +156,3 @@
     (λ ()
       (trace-expression (+ 1 2)))
     #:logger logger level topic))
-

@@ -252,6 +252,28 @@ scratch or by using @racket[with-intercepted-logging] or
 
 @defthing[level log-level/c]{The level for logger events.}
 
+@subsection{Conveniences}
+
+These conveniences were motivated by examples in this documentation.
+Although it is unlikely you'll find them useful, they are provided and
+documented here.
+
+@defproc[(call-with-vestiges
+          [interceptor (-> (vector/c
+                             log-level/c
+                             string?
+                             any/c
+                             (or/c symbol? #f))
+                           any)]
+          [thunk (-> any)])
+         any]{
+A convenience wrapper around @racket[with-intercepted-logging]. Runs
+@racket[thunk], calling @racket[interceptor] with any logger event
+vector emitted by Vestige.}
+
+@defform[(with-vestiges expresssion ...+)]{Sugar for
+@racket[call-with-vestiges] where the interceptor returns the logger
+event message and value, only, as a list.}
 
 @section{Hash table mappings}
 
@@ -307,16 +329,16 @@ with a @racket[complete-path?] source.}
 
 @section{Examples}
 
-Here we show using the values from @racketmodname[vestige/logger] and
-the convenience function @racket[with-intercepted-logging] to make a
-@tech/ref{log receiver} that @racket[pretty-print]s the ``raw'' logger
-event vectors:
-
-@margin-note{Note: The source location values in this example such as
- @racketresult[("eval" 2 0 2 1)] are a result of how these examples
+@margin-note{Note: The source location values in these examples such
+ as @racketresult[("eval" 2 0 2 1)] are a result of how these examples
  are evaluated to build this documentation. In real usage, when the
  source is a file, @racketresult["eval"] would instead would be
  something like @racketresult["/path/to/file.rkt"].}
+
+Here we show using the values from @racketmodname[vestige/logger] and
+the convenience syntax @racket[with-vestiges] to make a @tech/ref{log
+receiver} that @racket[pretty-print]s the message and value from each
+logger event vector:
 
 @(define-syntax-rule (ex . pre-content)
    (examples #:eval (make-base-eval)
@@ -327,21 +349,20 @@ event vectors:
              pre-content))
 
 @ex[
-  (require racket/logging
-           racket/pretty
-           vestige/explicit
+  (require vestige/explicit
            vestige/logger)
   (define (example)
     (trace-define (f x) (+ 1 x))
     (trace-define (g x) (+ 1 (f x)))
     (g 42)
     (trace-expression (* 2 3)))
-  (with-intercepted-logging pretty-print example
-    #:logger logger level topic)
+  (with-vestiges (example))
 ]
 
 Here is the previous example modified to convert the logger event
-value from a @racket[hasheq] to JSON:
+value from a @racket[hasheq] to JSON. We show using the values from
+@racketmodname[vestige/logger] and the convenience function
+@racket[with-intercepted-logging] to make a @tech/ref{log receiver}.
 
 @ex[
   (require json
@@ -375,16 +396,13 @@ internal definitions of functions, in which case you control the
 name.}
 
 @ex[
-  (require racket/logging
-           racket/pretty
-           vestige/explicit
+  (require vestige/explicit
            vestige/logger)
   (define (example)
     (trace-define ((f x0 x1) y0 y1)
       (+ x0 x1 y0 y1))
     ((f 1 2) 3 4))
-  (with-intercepted-logging pretty-print example
-    #:logger logger level topic)
+  (with-vestiges (example))
 ]
 
 @subsection{Tip: Naming threads}

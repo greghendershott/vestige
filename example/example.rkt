@@ -15,6 +15,14 @@
                    (displayln (jsexpr->string value))]))
   (with-intercepted-logging interceptor example #:logger logger level topic))
 
+(module with-vestiges-example racket/base
+  (require vestige/explicit
+           vestige/logger)
+  (with-vestiges
+    (trace-define (f x) (+ 1 x))
+    (f 42)
+    (trace-expression (* 2 3))))
+
 (module explicit-example racket/base
   (require vestige/explicit)
   (provide explicit-example)
@@ -68,20 +76,12 @@
     (define alice (lambda (x) x))
     (alice 34))) ;another tail call
 
-(require racket/logging
-         racket/match
-         racket/pretty
-         vestige/logger)
-
-(define (show-logged-example proc)
-  (define interceptor (match-lambda [(vector _level str val _topic)
-                                     (pretty-print (list str val))]))
-  (with-intercepted-logging interceptor proc #:logger logger level topic))
+(require vestige/logger)
 
 (require 'explicit-example
          'implicit-example)
-(show-logged-example explicit-example)
-(show-logged-example implicit-example)
+(with-vestiges (explicit-example))
+(with-vestiges (implicit-example))
 
 (module thread-example racket/base
   (require vestige)
@@ -96,4 +96,4 @@
       (sleep 1)))
   (provide thread-example))
 (require 'thread-example)
-(show-logged-example thread-example)
+(with-vestiges (thread-example))
