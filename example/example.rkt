@@ -42,7 +42,8 @@
     (alice 34))) ;another tail call
 
 (module implicit-example racket/base
-  (require vestige)
+  (require vestige
+           racket/match)
   (provide implicit-example)
   (define (implicit-example)
     (define (baz x) x)
@@ -59,6 +60,11 @@
     (uncurried 1)
     (trace-expression (void))
     (trace-expression (+ 1 2))
+    (define (recur xs)
+      (match xs
+        [(list) (list)]
+        [(cons x more) (cons (+ 1 x) (recur more))]))
+    (recur (list 1 2 3 4 5 6 7 8 9 10))
     (define alice (lambda (x) x))
     (alice 34))) ;another tail call
 

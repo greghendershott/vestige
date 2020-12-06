@@ -32,8 +32,8 @@
 Structured, logger-based ``tracing'' is useful for both ``debugging''
 and ``devops''.
 
-This package aims to support both scenarios and minimize littering
-code with cross-cutting concerns.
+This package aims to support both scenarios as well as minimize
+ross-cutting concerns.
 
 @subsection{What it does differently from @racketmodname[racket/trace]}
 
@@ -54,23 +54,32 @@ additional information is captured and its disposition is different:
 
  @itemlist[
 
-  @item{The @racket[srcloc] for the definition of the function being
-  traced.}
+  @item{@racket[srcloc] for various interesting things, when
+  available.
 
-  @item{The @racket[srcloc] for the call site is available when you
-  use @racketmodname[vestige]'s @racket[#%app] to replace
-  @racketmodname[racket/base]'s @|#%app-id| in modules that call a
-  traced function. This can be useful for editing and debugging tools,
-  but imposes some overhead for all function calls in such a module.}
+   @itemlist[
 
-  @item{The @racket[srcloc] for the context surrounding the call site,
-  obtained from @racket[continuation-mark-set->context]. This is
-  adequate for ``devops'' purposes such as examining logs for a server
-  (which ordinarily lack any automatic caller context).}
+    @item{The @emph{definition} of the function being traced.}
+
+    @item{The @emph{``signature''} span within the definition. Tools
+    can use this to present logs in a UI resembling a step debugger.}
+
+    @item{The @emph{caller} site. This information is only recorded
+    for calls from modules where you use @racketmodname[vestige]'s
+    @racket[#%app] to replace @racketmodname[racket/base]'s
+    @|#%app-id|. Although useful for editing/debugging tools, this
+    imposes some runtime overhead for all function calls in such a
+    module.}
+
+    @item{The @emph{context} surrounding the caller site, obtained
+    from @racket[continuation-mark-set->context]. Although often
+    imprecise, it imposes no overhead, and is sometimes adequate for
+    ``devops'' purposes such as examining logs for a server (which
+    traditionally lack any automatic caller context).}]}
 
   @item{Useful information that should be captured eagerly, such as
   @racket[current-thread] and @racket[current-inexact-milliseconds],
-  because logger events are received later on another thread.}]}
+  because logger events are received later and in another thread.}]}
 
  @item{Although each logger event vector has a simple ``message''
  string similar to @racketmodname[racket/trace], much more information
@@ -163,14 +172,10 @@ This is the core form into which others expand.}
 @defform*[((trace-define id expr)
            (trace-define (head args) body ...+))]{
 
-Like @|trace-define-id|.
+Like @|trace-define-id|.}
 
-The implementation uses @racket[normalize-definition], supplying
-@racket[trace-lambda]. As a result, function definitions will be
-traced, whereas definitions of other values will not.}
-
-@defform*[((trace-let id ([arg expr] ...+) body ...+)
-           (trace-let ([id expr] ...) body ...+))]{
+@defform*[((trace-let id ([id expr] ...) body ...+)
+           (trace-let    ([id expr] ...) body ...+))]{
 
 The first form is like @|trace-let-id|: It traces the function
 implicitly defined and called by a ``named let''.
@@ -180,8 +185,9 @@ Otherwise, as with the second form, this defers to @racket[let].}
 @defform[(trace-expression expression)]{
 
 Equivalent to @racket[((trace-lambda #:name id () expression))], where
-@racket[id] is synthesized from [(syntax->datum #'expression)] and
-gets a syntax property with the printed value of @racket[expression].
+@racket[id] is synthesized from @racket[(syntax->datum #'expression)]
+and gets a syntax property with the printed value of
+@racket[expression].
 
 The rationale for expanding to @racket[trace-lambda] --- instead of
 simply directly logging the @racket[expression] datum and the
@@ -192,13 +198,13 @@ that use levels for indent or other purposes.}
 
 @defform[(#%app expr ...+)]{
 
-Expands to @racket[(with-continuation-mark key srcloc (#%app expr
-...))], where @racket[key] is a private value, @racket[srcloc] is that
+Expands to @racket[(with-continuation-mark key loc (#%app expr ...))],
+where @racket[key] is a private value, @racket[loc] is @racket[srcloc]
 of the call site, and @|#%app-id| is that of
 @racketmodname[racket/base].
 
-Using this is optional. It imposes some overhead but allows call site
-information to be logged.}
+Using this is optional. Although it allows call site information to be
+logged, it imposes some runtime overhead.}
 
 
 @section{Recording call sites}
@@ -294,12 +300,20 @@ the convenience function @racket[with-intercepted-logging] to make a
 event vectors:
 
 @margin-note{Note: The source location values in this example such as
- @racketresult[(eval 2 0 2 1)] are a result of how these examples are
- evaluated to build this documentation. In real usage, when the source
- is a file, they would look something like
- @racketresult[("/path/to/file.rkt" 2 0 2 1)].}
+ @racketresult[("eval" 2 0 2 1)] are a result of how these examples
+ are evaluated to build this documentation. In real usage, when the
+ source is a file, @racketresult["eval"] would instead would be
+ something like @racketresult["/path/to/file.rkt"].}
 
-@examples[#:eval (make-base-eval) #:no-prompt #:label #f
+@(define-syntax-rule (ex . pre-content)
+   (examples #:eval (make-base-eval)
+             #:no-prompt
+             #:label #f
+             #:preserve-source-locations
+             .
+             pre-content))
+
+@ex[
   (require racket/logging
            racket/pretty
            vestige/explicit
@@ -313,10 +327,10 @@ event vectors:
     #:logger logger level topic)
 ]
 
-Here is the example modified to convert the logger event value from a
-@racket[hasheq] to JSON:
+Here is the previous example modified to convert the logger event
+value from a @racket[hasheq] to JSON:
 
-@examples[#:eval (make-base-eval) #:no-prompt #:label #f
+@ex[
   (require json
            racket/logging
            racket/match
@@ -331,6 +345,32 @@ Here is the example modified to convert the logger event value from a
     (match-lambda [(vector __level __str value __topic)
                    (displayln (jsexpr->string value))]))
   (with-intercepted-logging interceptor example
+    #:logger logger level topic)
+]
+
+Here is how @racket[trace-define] handles so-called ``curried''
+definitions, which expand into nested @racket[trace-lambda]s; each
+gets a name and signature location that is distinct and meaningful.
+
+@margin-note{Otherwise the inner functions would get inferred names
+like @racket[".../partial/path/to/foo.rkt:1:2"] and lack distinct
+signature locations.}
+
+@margin-note{Although this package accommodates it, some people don't
+like the ``curried'' style. Instead you can always replace it with
+internal definitions of functions, in which case you control the
+name.}
+
+@ex[
+  (require racket/logging
+           racket/pretty
+           vestige/explicit
+           vestige/logger)
+  (define (example)
+    (trace-define ((f x0 x1) y0 y1)
+      (+ x0 x1 y0 y1))
+    ((f 1 2) 3 4))
+  (with-intercepted-logging pretty-print example
     #:logger logger level topic)
 ]
 
