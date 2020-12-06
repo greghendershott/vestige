@@ -31,7 +31,7 @@
 ;; NOTE: This is substantially copied from racket/trace, but enhanced
 ;; to grab caller and context if any from marks.
 ;;
-;; Apply a traced procedure to arguments, printing arguments and
+;; Apply a traced procedure to arguments, logging arguments and
 ;; results. We set and inspect the level-key continuation mark a few
 ;; times to detect tail calls.
 (define (apply-traced id-stx untraced-proc args kws kw-vals)
