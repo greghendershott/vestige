@@ -1,10 +1,13 @@
 #lang racket/base
 
-(require racket/pretty
+(require racket/match
+         racket/pretty
          "logger.rkt")
 
-(define receiver (make-log-receiver logger 'debug))
+(define receiver (make-log-receiver logger level))
 (define (receive)
-  (pretty-print (sync receiver))
+  (pretty-print (match (sync receiver)
+                  [(vector _level message data _topic)
+                   (list message data)]))
   (receive))
 (void (thread receive))

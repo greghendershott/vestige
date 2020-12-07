@@ -280,7 +280,16 @@ characters to show level.}
 
 @defmapping['thread string?]{The name of the @tech/ref{thread
 descriptor} for the currently executing thread: @racket[(~a
-(object-name (current-thread)))]}
+(object-name (current-thread)))]
+
+The @racket['thread] mapping values can be especially useful when you
+keep in mind that the @racket[object-name] of a Racket
+@tech/ref{thread descriptor} defaults to the name of its thunk
+procedure. You can even use @racket[procedure-rename] to give each
+thread thunk a unique name related to a ``job'' or ``request'', as
+discussed in
+@hyperlink["https://www.greghendershott.com/2018/11/thread-names.html"]{this
+blog post}.}
 
 @defmapping['msec real?]{The time of the function call or result:
 @racket[(current-inexact-milliseconds)].}
@@ -295,6 +304,25 @@ representation of a @racket[srcloc] struct as a list. The first,
 @defmapping['definition srcloc-as-list?]{The location of the function
 definition or expression.}
 
+@defmapping['signature srcloc-as-list?]{The location of the
+``signature''. What this means varies among the forms.
+
+For @racket[(trace-lambda (x y z) ___)] the signature is the parameter
+list, @litchar{(x y z)}.
+
+For @racket[(trace-define (f x y z) ___)] the signature is the
+``header'', @litchar{(f x y z)}; for ``curried'' define, each nested
+function header has its own signature.
+
+For @racket[(let f ([x 1][y 2][z 3]) ___)], the signature spans both
+the identifier and the parameter/initialization list, @litchar{f ([x
+1][y 2][z 3])}.
+
+For @racket[trace-expression] the signature is the expression.
+
+In each case, the idea is that a tool could show something @italic{in
+situ} in the style of a step debugger.}
+
 @defmapping['caller (or/c #f srcloc-as-list?)]{The location of the
 caller. This is only available when the call is from a module using
 @racketmodname[vestige]'s @racket[#%app]. Otherwise the value will be
@@ -305,7 +333,25 @@ context surrounding the call site. This can be @racket[#f] when
 @racket[continuation-mark-set->context] reports no surrounding context
 with a @racket[complete-path?] source.}
 
+
 @section{Examples}
+
+@(define-syntax-rule (ex eval pre-content ...)
+   (examples #:eval eval
+             #:no-prompt
+             #:label #f
+             #:preserve-source-locations
+             pre-content ...))
+
+@(define-syntax-rule (ex/show pre-content ...)
+   (let ((e (make-base-eval)))
+     (examples #:eval e #:hidden (require vestige/private/receiver))
+     (ex e pre-content ...)))
+
+@(define-syntax-rule (ex/no-show pre-content ...)
+   (ex (make-base-eval) pre-content ...))
+
+@subsection{Simple}
 
 @margin-note{Note: The source location values in these examples such
  as @racketresult[("eval" 2 0 2 1)] are a result of how these examples
@@ -313,23 +359,12 @@ with a @racket[complete-path?] source.}
  source is a file, @racketresult["eval"] would instead would be
  something like @racketresult["/path/to/file.rkt"].}
 
-Here is a small example of what the logger data looks like. Just for
-the sake of this documentation we've arranged for a logger receiver to
-print the data here:
+Here is a small example of what the ``message'' and ``data'' slots of
+logger event vectors look like. Just for the sake of this
+documentation we've arranged for a logger receiver to print the data
+here:
 
-@(define-syntax-rule (ex #:eval eval . pre-content)
-   (examples #:eval eval
-             #:no-prompt
-             #:label #f
-             #:preserve-source-locations
-             .
-             pre-content))
-
-@(define e0 (make-base-eval))
-@examples[#:eval e0 #:hidden
-  (require vestige/private/receiver)
-]
-@ex[#:eval e0
+@ex/show[
   (require vestige/explicit)
   (trace-define (f x) (+ 1 x))
   (trace-define (g x) (+ 1 (f x)))
@@ -337,28 +372,8 @@ print the data here:
   (trace-expression (* 2 3))
 ]
 
-Here is the previous example modified to convert the logger event
-value from a @racket[hasheq] to JSON. We show using the values from
-@racketmodname[vestige/logger] and the convenience function
-@racket[with-intercepted-logging] to make a @tech/ref{log receiver}.
 
-@ex[#:eval (make-base-eval)
-  (require json
-           racket/logging
-           racket/match
-           vestige/explicit
-           vestige/logger)
-  (define (example)
-    (trace-define (f x) (+ 1 x))
-    (trace-define (g x) (+ 1 (f x)))
-    (g 42)
-    (trace-expression (* 2 3)))
-  (define interceptor
-    (match-lambda [(vector __level __str value __topic)
-                   (displayln (jsexpr->string value))]))
-  (with-intercepted-logging interceptor example
-    #:logger logger level topic)
-]
+@subsection{``Curried'' define}
 
 Here is how @racket[trace-define] handles so-called ``curried''
 definitions, which expand into nested @racket[trace-lambda]s. Each
@@ -372,25 +387,55 @@ like the ``curried'' style. Instead you can always replace it with
 internal definitions of functions, in which case you control the
 name.}
 
-@(define e1 (make-base-eval))
-@examples[#:eval e1 #:hidden
-  (require vestige/private/receiver)
-]
-@ex[#:eval e1
+@ex/show[
   (require vestige/explicit)
   (trace-define ((f x0 x1) y0 y1)
     (+ x0 x1 y0 y1))
   ((f 1 2) 3 4)
 ]
 
-@subsection{Tip: Naming threads}
 
-The @racket['thread] mapping values can be especially useful when you
-keep in mind that the @racket[object-name] of a Racket
-@tech/ref{thread descriptor} defaults to the name of its thunk
-procedure. You can even use @racket[procedure-rename] to give each
-thread thunk a unique name related to a ``job'' or ``request'', as
-discussed in
-@hyperlink["https://www.greghendershott.com/2018/11/thread-names.html"]{this
-blog post}.
+@subsection{Converting logger events to JSON}
 
+The previous examples were printing some logger data because, in the
+documentation environment, we arranged a simple @tech/ref{log
+receiver} thread much like this:
+
+@racketblock[
+  (require vestige/logger)
+  (define receiver (make-log-receiver logger level))
+  (define (receive)
+    (pretty-print (match (sync receiver)
+                    [(vector __level message data __topic)
+                     (list message data)]))
+    (receive))
+  (void (thread receive))
+]
+
+Another way to make a log receceiver is to use the values from
+@racketmodname[vestige/logger] and the @racketmodname[racket/logging]
+convenience function @racket[with-intercepted-logging]. This example
+extracts the @italic{data} member of the vector and converts that
+@racket[hasheq] to JSON:
+
+@ex/no-show[
+  (require json
+           racket/logging
+           racket/match
+           vestige/explicit
+           vestige/logger)
+  (define (example)
+    (trace-define (f x) (+ 1 x))
+    (trace-define (g x) (+ 1 (f x)))
+    (g 42)
+    (trace-expression (* 2 3)))
+  (define interceptor
+    (match-lambda [(vector __level __message data __topic)
+                   (displayln (jsexpr->string data))]))
+  (with-intercepted-logging interceptor example
+    #:logger logger level topic)
+]
+
+Instead of @racket[displayln], this code could hand off the JSON
+string to a function that sends it to AWS CloudWatch Logs or a similar
+structured logging service.
