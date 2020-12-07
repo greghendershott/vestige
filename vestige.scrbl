@@ -252,28 +252,6 @@ scratch or by using @racket[with-intercepted-logging] or
 
 @defthing[level log-level/c]{The level for logger events.}
 
-@subsection{Conveniences}
-
-These conveniences were motivated by examples in this documentation.
-Although it is unlikely you'll find them useful, they are provided and
-documented here.
-
-@defproc[(call-with-vestiges
-          [interceptor (-> (vector/c
-                             log-level/c
-                             string?
-                             any/c
-                             (or/c symbol? #f))
-                           any)]
-          [thunk (-> any)])
-         any]{
-A convenience wrapper around @racket[with-intercepted-logging]. Runs
-@racket[thunk], calling @racket[interceptor] with any logger event
-vector emitted by Vestige.}
-
-@defform[(with-vestiges expresssion ...+)]{Sugar for
-@racket[call-with-vestiges] where the interceptor returns the logger
-event message and value, only, as a list.}
 
 @section{Hash table mappings}
 
@@ -335,28 +313,28 @@ with a @racket[complete-path?] source.}
  source is a file, @racketresult["eval"] would instead would be
  something like @racketresult["/path/to/file.rkt"].}
 
-Here we show using the values from @racketmodname[vestige/logger] and
-the convenience syntax @racket[with-vestiges] to make a @tech/ref{log
-receiver} that @racket[pretty-print]s the message and value from each
-logger event vector:
+Here is a small example of what the logger data looks like. Just for
+the sake of this documentation we've arranged for a logger receiver to
+print the data here:
 
-@(define-syntax-rule (ex . pre-content)
-   (examples #:eval (make-base-eval)
+@(define-syntax-rule (ex #:eval eval . pre-content)
+   (examples #:eval eval
              #:no-prompt
              #:label #f
              #:preserve-source-locations
              .
              pre-content))
 
-@ex[
-  (require vestige/explicit
-           vestige/logger)
-  (define (example)
-    (trace-define (f x) (+ 1 x))
-    (trace-define (g x) (+ 1 (f x)))
-    (g 42)
-    (trace-expression (* 2 3)))
-  (with-vestiges (example))
+@(define e0 (make-base-eval))
+@examples[#:eval e0 #:hidden
+  (require vestige/private/receiver)
+]
+@ex[#:eval e0
+  (require vestige/explicit)
+  (trace-define (f x) (+ 1 x))
+  (trace-define (g x) (+ 1 (f x)))
+  (g 42)
+  (trace-expression (* 2 3))
 ]
 
 Here is the previous example modified to convert the logger event
@@ -364,7 +342,7 @@ value from a @racket[hasheq] to JSON. We show using the values from
 @racketmodname[vestige/logger] and the convenience function
 @racket[with-intercepted-logging] to make a @tech/ref{log receiver}.
 
-@ex[
+@ex[#:eval (make-base-eval)
   (require json
            racket/logging
            racket/match
@@ -383,26 +361,26 @@ value from a @racket[hasheq] to JSON. We show using the values from
 ]
 
 Here is how @racket[trace-define] handles so-called ``curried''
-definitions, which expand into nested @racket[trace-lambda]s; each
-gets a name and signature location that is distinct and meaningful.
-
-@margin-note{Otherwise the inner functions would get inferred names
-like @racket[".../partial/path/to/foo.rkt:1:2"] and lack distinct
-signature locations.}
+definitions, which expand into nested @racket[trace-lambda]s. Each
+gets a name and a signature source location that is distinct and
+meaningful. (Otherwise the inner functions would get inferred names
+like @racket[".../partial/path/to/foo.rkt:1:2"] and share signature
+locations.)
 
 @margin-note{Although this package accommodates it, some people don't
 like the ``curried'' style. Instead you can always replace it with
 internal definitions of functions, in which case you control the
 name.}
 
-@ex[
-  (require vestige/explicit
-           vestige/logger)
-  (define (example)
-    (trace-define ((f x0 x1) y0 y1)
-      (+ x0 x1 y0 y1))
-    ((f 1 2) 3 4))
-  (with-vestiges (example))
+@(define e1 (make-base-eval))
+@examples[#:eval e1 #:hidden
+  (require vestige/private/receiver)
+]
+@ex[#:eval e1
+  (require vestige/explicit)
+  (trace-define ((f x0 x1) y0 y1)
+    (+ x0 x1 y0 y1))
+  ((f 1 2) 3 4)
 ]
 
 @subsection{Tip: Naming threads}
