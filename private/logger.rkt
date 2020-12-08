@@ -3,6 +3,7 @@
 (require racket/format
          racket/list
          racket/match
+         syntax/parse/define
          "srcloc.rkt"
          "expression-id.rkt"
          "signature.rkt")
@@ -17,15 +18,14 @@
 (define topic 'vestige-trace)
 (define logger (make-logger topic (current-logger)))
 
-(define (log! str data)
-  (when (log-level? logger level topic)
-    (log-message logger
-                 level
-                 str
-                 data
-                 #f)))
+(define (log! message data)
+  (log-message logger level topic message data #f))
 
-(define (log-args id -tail? args kws kw-vals level -caller context)
+(define-simple-macro (log-args e:expr ...)
+  (when (log-level? logger level topic)
+    (do-log-args e ...)))
+
+(define (do-log-args id -tail? args kws kw-vals level -caller context)
   (define-values (str caller tail?)
     (match (expression-identifier->string id)
       ;; Traced expressions: 1. Show the expression string. 2. Use
@@ -42,7 +42,11 @@
   (log! (~a (make-string (add1 level) #\>) " " str)
         (make-logger-event-value #t tail? id str level caller context)))
 
-(define (log-results id results level -caller context)
+(define-simple-macro (log-results e:expr ...)
+  (when (log-level? logger level topic)
+    (do-log-results e ...)))
+
+(define (do-log-results id results level -caller context)
   (define str
     (~a (match results
           [(list)   "#<void>"]
