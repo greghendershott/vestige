@@ -9,7 +9,9 @@
                      vestige/logger)
           scribble/example)
 
-@(module m racket/base
+@; A way to get links to things from racket/base and racket/trace that
+@; are shadowed by vestige. IIRC I learned this from typed/racket.
+@(module shadowed racket/base
    (require (for-label racket/base
                        racket/trace)
             scribble/manual)
@@ -20,7 +22,7 @@
    (define trace-let-id (racket trace-let))
    (define #%app-id (racket #%app))
    (provide (all-defined-out)))
-@(require 'm)
+@(require 'shadowed)
 
 @(define (tech/ref . pre-content)
    (apply tech #:doc '(lib "scribblings/reference/reference.scrbl") pre-content))
@@ -180,7 +182,10 @@ expressions in a module.
 
 Like @|trace-lambda-id|.
 
-This is the core form into which others expand.}
+This is the core form into which others expand.
+
+The optional @racket[id] is used not only for its symbolic value, but
+also as a carrier of one or more special syntax properties.}
 
 @defform*[((trace-define id expr)
            (trace-define (head args) body ...+))]{
@@ -193,7 +198,7 @@ Like @|trace-define-id|.}
 The first form is like @|trace-let-id| -- it instruments the function
 implicitly defined and called by a ``named let''.
 
-Otherwise, as with the second form, this defers to @racket[let].}
+The second form defers to plain @racket[let].}
 
 @defform[(trace-expression expression)]{
 
