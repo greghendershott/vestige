@@ -70,7 +70,6 @@
                     (apply untraced-proc args)
                     (keyword-apply untraced-proc kws kw-vals args))))
             (λ results
-              (flush-output)
               (log-results id-stx results level caller context)
               (apply values results))))]))))
 
