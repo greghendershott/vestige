@@ -184,8 +184,14 @@ Like @|trace-lambda-id|.
 
 This is the core form into which others expand.
 
-The optional @racket[id] is used not only for its symbolic value, but
-also as a carrier of one or more special syntax properties.}
+The optional @racket[id] is used not only for its symbol value, but
+also as a bearer of one or more special syntax properties, such as
+source location for the ``signature''.}
+
+@defform[(trace-case-lambda [formals body ...+] ...+)]{
+
+Like @racket[case-lambda] but expands to a @racket[trace-lambda] with
+a distinct signature location for each clause.}
 
 @defform*[((trace-define id expr)
            (trace-define (head args) body ...+))]{

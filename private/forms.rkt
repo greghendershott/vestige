@@ -35,6 +35,7 @@
 
 (provide trace-lambda
          (rename-out [trace-lambda trace-λ])
+         trace-case-lambda
          trace-define
          trace-let
          trace-expression)
@@ -58,6 +59,31 @@
         ARGS:formals BODY:expr ...)
      (syntax/loc stx
        (wrap-with-tracing (λ ARGS BODY ...) #'ID))]))
+
+(define-syntax (trace-case-lambda stx)
+  (define inferred-name
+    (or (syntax-local-infer-name stx)
+        (raise-syntax-error 'trace-case-lambda "Could not infer name" stx)))
+  (define-syntax-class clause
+    (pattern (formals:formals body:expr ...+)
+             #:with len  (length (syntax->list #'formals))
+             #:with name (add-signature-stx-prop
+                          (format-id #'formals "~a" inferred-name)
+                          #'formals)))
+  (syntax-parse stx
+    [(_ CLAUSE:clause ...+)
+     #:with INFERRED-NAME inferred-name
+     (quasisyntax/loc stx
+       (lambda args
+         (case (length args)
+           [(CLAUSE.len) (apply (trace-lambda #:name CLAUSE.name
+                                              CLAUSE.formals
+                                              CLAUSE.body ...)
+                                args)] ...
+           [else (apply raise-arity-error
+                        'INFERRED-NAME
+                        '(CLAUSE.len ...)
+                        args)])))]))
 
 (define-syntax (trace-define stx)
  (syntax-parse stx
