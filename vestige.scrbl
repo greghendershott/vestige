@@ -5,6 +5,7 @@
                      racket/format
                      racket/logging
                      syntax/define
+                     syntax/name
                      vestige/explicit
                      vestige/logger)
           scribble/example)
@@ -178,23 +179,27 @@ The @racketmodname[vestige/explicit] module provides distinctly named
 forms. Use this when you want to instrument only some functions or
 expressions in a module.
 
-@defform[(trace-lambda [#:name name] args expr)]{
+@defform[(trace-lambda [#:name name] kw-formals body ...+)]{
 
 Like @|trace-lambda-id|.
 
 This is the core form into which others expand.
 
-The optional @racket[name] identifier is used not only for its symbol
-value, but also as a bearer of one or more special syntax properties.
-One such property is the source location for the ``signature'' (the
-exact meaning of which differs among the various forms that expand to
+The optional @racket[name] identifier is used for its symbol value as
+well as a bearer of one or more special syntax properties. One such
+property is the source location for the ``signature'' (the exact
+meaning of which differs among the various forms that expand to
 @racket[trace-lambda]) that appears as @racket['signature] in the
-@secref["hash-table"].}
+@secref["hash-table"]. When @racket[name] is not supplied, the
+identifier is inferred using @racket[syntax-local-infer-name] and the
+signature is the source location @racket[kw-formals].}
 
 @defform[(trace-case-lambda [formals body ...+] ...+)]{
 
-Like @racket[case-lambda] but expands to a @racket[trace-lambda] with
-a distinct signature location for each clause.}
+Like @racket[case-lambda] but expands to multiple
+@racket[trace-lambda] forms, one for each clause, where each
+@racket[#:name] comes from @racket[syntax-local-infer-name] and has a
+signature property for the location of each @racket[formals].}
 
 @defform*[((trace-define id expr)
            (trace-define (head args) body ...+))]{
@@ -207,13 +212,14 @@ expands to nested @racket[trace-lambda]s, each of which has a
 of the syntax, and whose symbol is formed from the base name with the
 formals appended; see the @secref["curried-define-example"] example.}
 
-@defform*[((trace-let name ([id expr] ...) body ...+)
-           (trace-let      ([id expr] ...) body ...+))]{
+@defform*[((trace-let proc-id ([id init-expr] ...) body ...+)
+           (trace-let         ([id init-expr] ...) body ...+))]{
 
 The first form is like @|trace-let-id| -- it instruments the function
 implicitly defined and called by a ``named let''. It expands to a
 @racket[trace-lambda] with a @racket[#:name] identifier whose
-signature property covers both @racket[name] and the formals.
+signature property is a span covering both @racket[proc-id] and the
+list of parameters.
 
 The second form defers to plain @racket[let].}
 
