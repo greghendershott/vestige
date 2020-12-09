@@ -85,41 +85,41 @@
                         args)])))]))
 
 (define-syntax (trace-define stx)
- (syntax-parse stx
-   [(_ HEADER:function-header BODY:expr ...+)
-    ;; Flatten/reverse the formals to be able to generate the nested
-    ;; lambdas.
-    (define all-formals
-      (reverse
-       (let loop ([header #'HEADER])
-         (syntax-parse header
-           [(_:id . FORMALS:formals)
-            (list #'FORMALS)]
-           [(MORE . FORMALS:formals)
-            (cons #'FORMALS (loop #'MORE))]))))
-    (define curried? (not (null? (cdr all-formals))))
-    ;; For e.g. (define ((f x0 x1) y0 y1) _) synthesize trace-lambda
-    ;; #:name identifiers like "foo{x0 x1}" and "foo{y0 y1}",
-    ;; attaching a signature stx prop for the specific nested formals'
-    ;; srcloc.
-    (define (inner-name fs)
-      (define params (if curried? (formals->curly-params fs) ""))
-      (define id (format-id #f "~a~a" #'HEADER.name params #:source fs))
-      (add-signature-stx-prop id fs))
-    (with-syntax ([NAME (add-signature-stx-prop #'HEADER.name #'HEADER)])
-      (quasisyntax/loc stx
-        (define NAME
-          #,(let loop ([fss all-formals])
-              (match fss
-                [(list fs)
-                 (quasisyntax/loc fs
-                   (trace-lambda #:name #,(inner-name fs) #,fs
-                                 BODY ...))]
-                [(cons fs more)
-                 (quasisyntax/loc fs
-                   (trace-lambda #:name #,(inner-name fs) #,fs
-                                 #,(loop more)))])))))]
-   [_
+  (syntax-parse stx
+    [(_ HEADER:function-header BODY:expr ...+)
+     ;; Flatten/reverse the formals to be able to generate the nested
+     ;; lambdas.
+     (define all-formals
+       (reverse
+        (let loop ([header #'HEADER])
+          (syntax-parse header
+            [(_:id . FORMALS:formals)
+             (list #'FORMALS)]
+            [(MORE . FORMALS:formals)
+             (cons #'FORMALS (loop #'MORE))]))))
+     (define curried? (not (null? (cdr all-formals))))
+     ;; For e.g. (define ((f x0 x1) y0 y1) _) synthesize trace-lambda
+     ;; #:name identifiers like "foo{x0 x1}" and "foo{y0 y1}",
+     ;; attaching a signature stx prop for the specific nested formals'
+     ;; srcloc.
+     (define (inner-name fs)
+       (define params (if curried? (formals->curly-params fs) ""))
+       (define id (format-id #f "~a~a" #'HEADER.name params #:source fs))
+       (add-signature-stx-prop id fs))
+     (with-syntax ([NAME (add-signature-stx-prop #'HEADER.name #'HEADER)])
+       (quasisyntax/loc stx
+         (define NAME
+           #,(let loop ([fss all-formals])
+               (match fss
+                 [(list fs)
+                  (quasisyntax/loc fs
+                    (trace-lambda #:name #,(inner-name fs) #,fs
+                                  BODY ...))]
+                 [(cons fs more)
+                  (quasisyntax/loc fs
+                    (trace-lambda #:name #,(inner-name fs) #,fs
+                                  #,(loop more)))])))))]
+    [_
      (define-values (name def) (normalize-definition stx #'lambda #t #t))
      (quasisyntax/loc stx (define #,name #,def))]))
 
