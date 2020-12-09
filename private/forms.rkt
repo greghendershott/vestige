@@ -3,7 +3,6 @@
 (require (for-syntax racket/base
                      racket/match
                      racket/string
-                     (only-in racket/sequence in-syntax)
                      (only-in racket/syntax format-id)
                      syntax/define
                      syntax/name
