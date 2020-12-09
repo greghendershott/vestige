@@ -178,15 +178,18 @@ The @racketmodname[vestige/explicit] module provides distinctly named
 forms. Use this when you want to instrument only some functions or
 expressions in a module.
 
-@defform[(trace-lambda [#:name id] args expr)]{
+@defform[(trace-lambda [#:name name] args expr)]{
 
 Like @|trace-lambda-id|.
 
 This is the core form into which others expand.
 
-The optional @racket[id] is used not only for its symbol value, but
-also as a bearer of one or more special syntax properties, such as
-source location for the ``signature''.}
+The optional @racket[name] identifier is used not only for its symbol
+value, but also as a bearer of one or more special syntax properties.
+One such property is the source location for the ``signature'' (the
+exact meaning of which differs among the various forms that expand to
+@racket[trace-lambda]) that appears as @racket['signature] in the
+@secref["hash-table"].}
 
 @defform[(trace-case-lambda [formals body ...+] ...+)]{
 
@@ -196,22 +199,31 @@ a distinct signature location for each clause.}
 @defform*[((trace-define id expr)
            (trace-define (head args) body ...+))]{
 
-Like @|trace-define-id|.}
+Like @|trace-define-id|.
 
-@defform*[((trace-let id ([id expr] ...) body ...+)
-           (trace-let    ([id expr] ...) body ...+))]{
+The ``curried'' syntax --- e.g. @racket[(define ((f x) y) ____)] ---
+expands to nested @racket[trace-lambda]s, each of which has a
+@racket[#:name] identifier whose signature property covers that piece
+of the syntax, and whose symbol is formed from the base name with the
+formals appended; see the @secref["curried-define-example"] example.}
+
+@defform*[((trace-let name ([id expr] ...) body ...+)
+           (trace-let      ([id expr] ...) body ...+))]{
 
 The first form is like @|trace-let-id| -- it instruments the function
-implicitly defined and called by a ``named let''.
+implicitly defined and called by a ``named let''. It expands to a
+@racket[trace-lambda] with a @racket[#:name] identifier whose
+signature property covers both @racket[name] and the formals.
 
 The second form defers to plain @racket[let].}
 
 @defform[(trace-expression expression)]{
 
-Equivalent to @racket[((trace-lambda #:name id () expression))], where
-@racket[id] is synthesized from @racket[(syntax->datum #'expression)]
-and gets a syntax property with the printed value of
-@racket[expression].
+Equivalent to @racket[((trace-lambda #:name name () expression))],
+where @racket[name] is synthesized from @racket[(syntax->datum
+#'expression)] and gets a syntax property with the printed value of
+@racket[expression], as well as a syntax property for the signature,
+which is the entire @racket[expression].
 
 The rationale for expanding to @racket[trace-lambda] --- instead of
 simply directly logging the @racket[expression] datum and the
@@ -264,7 +276,7 @@ scratch or by using @racket[with-intercepted-logging] or
 @defthing[level log-level/c]{The level for logger events.}
 
 
-@section{Hash table mappings}
+@section[#:tag "hash-table"]{Hash table mappings}
 
 Each @tech/ref{logger} event vector's ``value'' slot is a
 @racket[hasheq] that also satisfies @racket[jsexpr?]. The hash-table
@@ -316,16 +328,23 @@ representation of a @racket[srcloc] struct as a list. The first,
 definition or expression.}
 
 @defmapping['signature srcloc-as-list?]{The location of the
-``signature''. What this means varies among the forms.
+``signature''. What this means varies among the forms. (The basic idea
+is that a tool could show a function call or expression @italic{in
+situ} at the location.)
 
-For @racket[(trace-lambda (x y z) ___)] the signature is the parameter
-list, @litchar{(x y z)}.
+For @racket[(trace-lambda (x y z) ____)] the signature is the
+parameter list, @litchar{(x y z)}.
 
-For @racket[(trace-define (f x y z) ___)] the signature is the
-``header'', @litchar{(f x y z)}; for ``curried'' define, each nested
-function header has its own signature.
+For @racket[(trace-case-lambda [() ____][(x y z) ____] ____)] there
+are signatures for each of the two parameter lists, @litchar{()} and
+@litchar{(x y z)}.
 
-For @racket[(let f ([x 1][y 2][z 3]) ___)], the signature spans both
+For @racket[(trace-define (f x y z) ____)] the signature is the
+``header'', @litchar{(f x y z)}. For ``curried'' define, each nested
+function header has its own signature; see the
+@secref["curried-define-example"] example.
+
+For @racket[(let f ([x 1][y 2][z 3]) ____)], the signature spans both
 the identifier and the parameter/initialization list, @litchar{f ([x
 1][y 2][z 3])}.
 
@@ -364,16 +383,17 @@ with a @racket[complete-path?] source.}
 
 @subsection{Simple}
 
-@margin-note{Note: The source location values in these examples such
- as @racketresult[("eval" 2 0 2 1)] are a result of how these examples
- are evaluated to build this documentation. In real usage, when the
+@margin-note{Just for the sake of this documentation we've arranged
+ for a logger receiver to pretty-print the logger data here.}
+
+@margin-note{The source location values in these examples such as
+ @racketresult[("eval" 2 0 2 1)] are a result of how these examples
+ are evaluated to build this documentation. In real use, when the
  source is a file, @racketresult["eval"] would instead would be
  something like @racketresult["/path/to/file.rkt"].}
 
 Here is a small example of what the ``message'' and ``data'' slots of
-logger event vectors look like. Just for the sake of this
-documentation we've arranged for a logger receiver to print the data
-here:
+logger event vectors look like:
 
 @ex/show[
   (require vestige/explicit)
@@ -384,7 +404,7 @@ here:
 ]
 
 
-@subsection{``Curried'' define}
+@subsection[#:tag "curried-define-example"]{``Curried'' define}
 
 Here is how @racket[trace-define] handles so-called ``curried''
 definitions, which expand into nested @racket[trace-lambda]s. Each
@@ -447,6 +467,6 @@ extracts the @italic{data} member of the vector and converts that
     #:logger logger level topic)
 ]
 
-Instead of @racket[displayln], this code could hand off the JSON
-string to a function that sends it to AWS CloudWatch Logs or a similar
+Instead of @racket[displayln], this code could give the JSON string to
+a function that sends it to AWS CloudWatch Logs or a similar
 structured logging service.
