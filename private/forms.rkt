@@ -44,7 +44,8 @@
   ;; attached for expressions and signatures, which we'd like to give
   ;; to wrap-with-tracing -- we accept a #:name parameter. Otherwise
   ;; we fall back to making our own identifier from the inferred name
-  ;; symbol, which of course won't have any helpful properties.)
+  ;; symbol. In any case, if the name identifier lacks a sig stx prop,
+  ;; we give it one corresponding to the formals.
   (define (infer-name-or-error)
     (or (syntax-local-infer-name stx)
         (raise-syntax-error
@@ -56,8 +57,11 @@
          (~seq #:name ID:id)
          #:defaults ([ID (datum->syntax stx (infer-name-or-error) stx)]))
         ARGS:formals BODY:expr ...)
-     (syntax/loc stx
-       (wrap-with-tracing (λ ARGS BODY ...) #'ID))]))
+     (with-syntax ([ID (if (get-signature-stx-prop #'ID)
+                           #'ID ;keep existing
+                           (add-signature-stx-prop #'ID #'ARGS))])
+       (syntax/loc stx
+         (wrap-with-tracing (λ ARGS BODY ...) #'ID)))]))
 
 (define-syntax (trace-case-lambda stx)
   (define inferred-name
