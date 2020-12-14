@@ -24,15 +24,6 @@
   (trace-define (bar x) (+ (foo x #:kw #f) 1))
   (trace-define (hello x) (+ (bar x)))
   (hello 42)
-  (trace-define ((curried x0 x1) y0 y1)
-    (+ x0 x1 y0 y1))
-  (trace-define uncurried (curried 1 2))
-  (uncurried 3 4)
-  (trace-expression (void))
-  (define x 42)
-  (define y 1)
-  (trace-expression (+ x (trace-expression (+ y 3))))
-  (trace-expression (+ 1 2))
   (define alice (lambda (x) x))
   (alice 34)) ;another tail call
 (require 'explicit-example)
@@ -50,17 +41,27 @@
   (define (bar x) (+ (foo x) 1))
   (define (hello x) (+ (bar x)))
   (hello 42)
-  (define ((curried x) y)
-    (+ x y))
-  (define uncurried (curried 99))
-  (uncurried 1)
   (trace-expression (void))
   (trace-expression (+ 1 2))
+  (let ([x 1] [y 2])
+   (trace-expression (+ x (trace-expression (+ y 3)))))
+  (trace-expression (values 1 2))
+  (define cl (case-lambda
+               [() 0]
+               [(x) x]
+               [(x y) (+ x y)]))
+  (cl)
+  (cl 1)
+  (cl 2 3)
   (define (recur xs)
     (match xs
       [(list) (list)]
       [(cons x more) (cons (+ 100 x) (recur more))]))
   (recur (list 1 2 3 4 5 6 7 8 9 10))
+  (define ((curried x) y)
+    (+ x y))
+  (define uncurried (curried 99))
+  (uncurried 1)
   (define alice (lambda (x) x))
   (alice 34)) ;another tail call
 (require 'implicit-example)
