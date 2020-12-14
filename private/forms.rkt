@@ -9,7 +9,7 @@
                      syntax/parse
                      syntax/parse/lib/function-header
                      "expression-id.rkt"
-                     "signature.rkt")
+                     "formals.rkt")
          (for-meta 2 racket/base)
          "core.rkt")
 
@@ -26,7 +26,7 @@
 ;; 1. For trace-expression, this captures the original expresssion
 ;; datum string, for later use when logging.
 ;;
-;; 2. For all forms, a "signature" property says what portion of the
+;; 2. For all forms, a "formals" property says what portion of the
 ;; source should be used if a "step tracer" tool wants to show an
 ;; application at the definition site. This varies among forms, and
 ;; can be the srloc for multiple consecutive pieces of original
@@ -41,7 +41,7 @@
 
 (define-syntax (trace-lambda stx)
   ;; For the identifier syntax -- which may have useful stx props
-  ;; attached for expressions and signatures, which we'd like to give
+  ;; attached for expressions and formals, which we'd like to give
   ;; to wrap-with-tracing -- we accept a #:name parameter. Otherwise
   ;; we fall back to making our own identifier from the inferred name
   ;; symbol. In any case, if the name identifier lacks a sig stx prop,
@@ -57,9 +57,9 @@
          (~seq #:name ID:id)
          #:defaults ([ID (datum->syntax stx (infer-name-or-error) stx)]))
         ARGS:formals BODY:expr ...)
-     (with-syntax ([ID (if (get-signature-stx-prop #'ID)
+     (with-syntax ([ID (if (get-formals-stx-prop #'ID)
                            #'ID ;keep existing
-                           (add-signature-stx-prop #'ID #'ARGS))])
+                           (add-formals-stx-prop #'ID #'ARGS))])
        (syntax/loc stx
          (wrap-with-tracing (λ ARGS BODY ...) #'ID)))]))
 
@@ -70,7 +70,7 @@
   (define-syntax-class clause
     (pattern (formals:formals body:expr ...+)
              #:with len  (length (syntax->list #'formals))
-             #:with name (add-signature-stx-prop
+             #:with name (add-formals-stx-prop
                           (format-id #'formals "~a" inferred-name)
                           #'formals)))
   (syntax-parse stx
@@ -104,25 +104,23 @@
      (define curried? (not (null? (cdr all-formals))))
      ;; For e.g. (define ((f x0 x1) y0 y1) _) synthesize trace-lambda
      ;; #:name identifiers like "foo{x0 x1}" and "foo{y0 y1}",
-     ;; attaching a signature stx prop for the specific nested formals'
+     ;; attaching a formals stx prop for the specific nested formals'
      ;; srcloc.
-     (define (inner-name fs)
+     (define (name-id fs)
        (define params (if curried? (formals->curly-params fs) ""))
-       (define id (format-id #f "~a~a" #'HEADER.name params #:source fs))
-       (add-signature-stx-prop id fs))
-     (with-syntax ([NAME (add-signature-stx-prop #'HEADER.name #'HEADER)])
-       (quasisyntax/loc stx
-         (define NAME
-           #,(let loop ([fss all-formals])
-               (match fss
-                 [(list fs)
-                  (quasisyntax/loc fs
-                    (trace-lambda #:name #,(inner-name fs) #,fs
-                                  BODY ...))]
-                 [(cons fs more)
-                  (quasisyntax/loc fs
-                    (trace-lambda #:name #,(inner-name fs) #,fs
-                                  #,(loop more)))])))))]
+       (format-id #f "~a~a" #'HEADER.name params #:source fs))
+     (quasisyntax/loc stx
+       (define HEADER.name
+         #,(let loop ([fss all-formals])
+             (match fss
+               [(list fs)
+                (quasisyntax/loc fs
+                  (trace-lambda #:name #,(name-id fs) #,fs
+                                BODY ...))]
+               [(cons fs more)
+                (quasisyntax/loc fs
+                  (trace-lambda #:name #,(name-id fs) #,fs
+                                #,(loop more)))]))))]
     [_
      (define-values (name def) (normalize-definition stx #'lambda #t #t))
      (quasisyntax/loc stx (define #,name #,def))]))
@@ -137,19 +135,12 @@
 
 (define-syntax (trace-let stx)
   (syntax-parse stx
-    ;; "Named `let`". Here the "signature" is both the name and the
-    ;; list of bindings.
-    [(_ NAME:id (~and BINDINGS ([ID:id e:expr] ...)) body ...+)
-     (with-syntax ([NAME (add-signature-stx-prop #'NAME #'NAME #'BINDINGS)])
-       (quasisyntax/loc stx
-         (let ()
-           (define NAME (trace-lambda #:name NAME (ID ...) body ...))
-           ;; Ensure initial call gets good call-site srcloc by invoking
-           ;; our tracing-#%app directly, otherwise it can be a bizarre
-           ;; value. Futhermore, want srcloc for #'name specifically not
-           ;; the entire named-let stx.
-           #,(syntax/loc #'NAME
-               (tracing-#%app NAME e ...)))))]
+    ;; "Named `let`".
+    [(_ NAME:id (~and BINDINGS ([ID:id E:expr] ...)) BODY ...+)
+     (with-syntax ([NAME (add-formals-stx-prop #'NAME #'BINDINGS)])
+       (syntax/loc stx
+         (letrec ([NAME (trace-lambda #:name NAME (ID ...) BODY ...)])
+           (NAME E ...))))]
     ;; Normal `let`
     [(_ E:expr ...+)
      (syntax/loc stx (let E ...))]))
@@ -165,8 +156,8 @@
 (define-syntax (trace-expression stx)
   (syntax-parse stx
     [(_ E:expr)
-     (with-syntax ([id (add-signature-stx-prop (expression->identifier #'E)
-                                               #'E)])
+     (with-syntax ([id (add-formals-stx-prop/whole-form (expression->identifier #'E)
+                                                        #'E)])
        (syntax/loc stx
          ((trace-lambda #:name id () E))))]))
 

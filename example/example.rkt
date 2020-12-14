@@ -77,6 +77,20 @@
     (sleep 1)))
 (require 'thread-example)
 
+(module hash-update-example racket/base
+  (require vestige
+           racket/set)
+  (define ht (make-hash))
+  (define (add k v)
+    (hash-update! ht
+                  k
+                  (λ (s) (set-add s v))
+                  (set)))
+  (add 'key 0)
+  (add 'key 1)
+  ht)
+(require 'hash-update-example)
+
 (module intercepted-logger-example racket/base
   (require racket/logging
            racket/match
@@ -91,3 +105,8 @@
     (match-lambda [(vector _level _str value _topic)
                    (displayln (jsexpr->string value))]))
   (with-intercepted-logging interceptor example #:logger logger level topic))
+
+(module m racket/base
+  (require vestige/explicit)
+  (require vestige/private/receiver)
+  ((trace-lambda #:name foo (x) x) 1))

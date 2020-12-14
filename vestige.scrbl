@@ -89,8 +89,8 @@ additional information is captured and its disposition is different:
 
     @item{The @emph{definition} of the function being called.}
 
-    @item{The @emph{``signature''} span within the definition. Tools
-    can use this to present logs in a UI resembling a step debugger.}
+    @item{The @emph{formals} span within the definition. Tools can use
+    this to present logs in a UI resembling a step debugger.}
 
     @item{The @emph{caller} site. This information is only recorded
     for calls from modules where you use @racketmodname[vestige]'s
@@ -187,19 +187,19 @@ This is the core form into which others expand.
 
 The optional @racket[name] identifier is used for its symbol value as
 well as a bearer of one or more special syntax properties. One such
-property is the source location for the ``signature'' (the exact
-meaning of which differs among the various forms that expand to
-@racket[trace-lambda]) that appears as @racket['signature] in the
+property is the source location for the formals (the exact meaning of
+which differs among the various forms that expand to
+@racket[trace-lambda]) that appears as @racket['formas] in the
 @secref["hash-table"]. When @racket[name] is not supplied, the
 identifier is inferred using @racket[syntax-local-infer-name] and the
-signature is the source location @racket[kw-formals].}
+formals are the source location for @racket[kw-formals].}
 
 @defform[(trace-case-lambda [formals body ...+] ...+)]{
 
 Like @racket[case-lambda] but expands to multiple
 @racket[trace-lambda] forms, one for each clause, where each
-@racket[#:name] comes from @racket[syntax-local-infer-name] and has a
-signature property for the location of each @racket[formals].}
+@racket[#:name] comes from @racket[syntax-local-infer-name] and the
+formals property is the location of each @racket[formals].}
 
 @defform*[((trace-define id expr)
            (trace-define (head args) body ...+))]{
@@ -208,8 +208,8 @@ Like @|trace-define-id|.
 
 The ``curried'' syntax --- e.g. @racket[(define ((f x) y) ____)] ---
 expands to nested @racket[trace-lambda]s, each of which has a
-@racket[#:name] identifier whose signature property covers that piece
-of the syntax, and whose symbol is formed from the base name with the
+@racket[#:name] identifier whose formals property covers that piece of
+the syntax, and whose symbol is formed from the base name with the
 formals appended; see the @secref["curried-define-example"] example.}
 
 @defform*[((trace-let proc-id ([id init-expr] ...) body ...+)
@@ -217,9 +217,8 @@ formals appended; see the @secref["curried-define-example"] example.}
 
 The first form is like @|trace-let-id| -- it instruments the function
 implicitly defined and called by a ``named let''. It expands to a
-@racket[trace-lambda] with a @racket[#:name] identifier whose
-signature property is a span covering both @racket[proc-id] and the
-list of parameters.
+@racket[trace-lambda] with a @racket[#:name] identifier whose formals
+property covers @racket[id] and @racket[init-expr].
 
 The second form defers to plain @racket[let].}
 
@@ -228,7 +227,7 @@ The second form defers to plain @racket[let].}
 Equivalent to @racket[((trace-lambda #:name name () expression))],
 where @racket[name] is synthesized from @racket[(syntax->datum
 #'expression)] and gets a syntax property with the printed value of
-@racket[expression], as well as a syntax property for the signature,
+@racket[expression], as well as a syntax property for the formals,
 which is the entire @racket[expression].
 
 The rationale for expanding to @racket[trace-lambda] --- instead of
@@ -333,28 +332,27 @@ representation of a @racket[srcloc] struct as a list. The first,
 @defmapping['definition srcloc-as-list?]{The location of the function
 definition or expression.}
 
-@defmapping['signature srcloc-as-list?]{The location of the
-``signature''. What this means varies among the forms. (The basic idea
-is that a tool could show a function call or expression @italic{in
-situ} at the location.)
+@defmapping['formals srcloc-as-list?]{The location of the formals.
+What this means varies among the forms. (The basic idea is that a tool
+could show a function call or expression @italic{in situ} at the
+location.)
 
-For @racket[(trace-lambda (x y z) ____)] the signature is the
-parameter list, @litchar{(x y z)}.
+For @racket[(trace-lambda (x y z) ____)] it covers the parameters
+@litchar{x y z}.
 
-For @racket[(trace-case-lambda [() ____][(x y z) ____] ____)] there
-are signatures for each of the two parameter lists, @litchar{()} and
-@litchar{(x y z)}.
+For @racket[(trace-case-lambda [() ____][(x y z) ____] ____)] there is
+a property for each of the two parameter lists, the first of which is
+an empty span and the second of which is @litchar{x y z}.
 
-For @racket[(trace-define (f x y z) ____)] the signature is the
-``header'', @litchar{(f x y z)}. For ``curried'' define, each nested
-function header has its own signature; see the
-@secref["curried-define-example"] example.
+For @racket[(trace-define (f x y z) ____)] it covers the parameters,
+@litchar{x y z}. For ``curried'' define, each nested function header
+has its own formals; see the @secref["curried-define-example"]
+example.
 
-For @racket[(let f ([x 1][y 2][z 3]) ____)], the signature spans both
-the identifier and the parameter/initialization list, @litchar{f ([x
-1][y 2][z 3])}.
+For @racket[(let f ([x 1][y 2][z 3]) ____)], it covers the
+parameter/initialization items, @litchar{[x 1][y 2][z 3]}.
 
-For @racket[trace-expression] the signature is the expression.
+For @racket[trace-expression] it is the entire expression.
 
 In each case, the idea is that a tool could show something @italic{in
 situ} in the style of a step debugger.}
@@ -414,9 +412,9 @@ logger event vectors look like:
 
 Here is how @racket[trace-define] handles so-called ``curried''
 definitions, which expand into nested @racket[trace-lambda]s. Each
-gets a name and a signature source location that is distinct and
+gets a name and a formalssource location that is distinct and
 meaningful. (Otherwise the inner functions would get inferred names
-like @racket[".../partial/path/to/foo.rkt:1:2"] and share signature
+like @racket[".../partial/path/to/foo.rkt:1:2"] and formals
 locations.)
 
 @margin-note{Although this package accommodates it, some people don't

@@ -6,7 +6,7 @@
          syntax/parse/define
          "srcloc.rkt"
          "expression-id.rkt"
-         "signature.rkt")
+         "formals.rkt")
 
 (provide log-args
          log-results
@@ -26,39 +26,41 @@
     (do-log-args e ...)))
 
 (define (do-log-args id -tail? args kws kw-vals level -caller context)
-  (define-values (str caller tail?)
+  (define-values (show vals caller tail?)
     (match (expression-identifier->string id)
       ;; Traced expressions: 1. Show the expression string. 2. Use
       ;; definition loc as "caller" loc. 3. Disregard any tail-call
       ;; flag.
       [(? string? v)
-       (values v id #f)]
+       (values v v id #f)]
       ;; Traced function calls: 1. Show calling the function with
       ;; plain and keyword args. Use supplied caller loc as-is.
       [_
        (values (~a `(,(syntax-e id) ,@args ,@(append-map list kws kw-vals)))
+               (apply ~a #:separator " "
+                      (append args (append-map list kws kw-vals)))
                -caller
                -tail?)]))
-  (log! (~a (make-string (add1 level) #\>) " " str)
-        (make-logger-event-value #t tail? id str level caller context)))
+  (log! (~a (make-string (add1 level) #\>) " " show)
+        (make-logger-event-value #t tail? id show vals level caller context)))
 
 (define-simple-macro (log-results e:expr ...)
   (when (log-level? logger level topic)
     (do-log-results e ...)))
 
 (define (do-log-results id results level -caller context)
-  (define str
+  (define vals
     (~a (match results
           [(list)   "#<void>"]
           [(list v) (~v v)]
           [vs       (~s (cons 'values vs))])))
   ;; Traced expressions: Use definition loc as "caller" loc.
   (define caller (if (expression-identifier->string id) id -caller))
-  (log! (~a (make-string (add1 level) #\<) " " str)
-        (make-logger-event-value #f #f id str level caller context)))
+  (log! (~a (make-string (add1 level) #\<) " " vals)
+        (make-logger-event-value #f #f id vals vals level caller context)))
 
-;; -> jsexpr?
-(define (make-logger-event-value call? tail? id str level caller context)
+;; Return a hasheq that satisfies jsexpr?
+(define (make-logger-event-value call? tail? id show vals level caller context)
   ;; We use hasheq because it is trivial to transform to json via
   ;; jsexpr->string, or to an association list, or whatever.
   ;;
@@ -73,9 +75,10 @@
           'tail       tail?
           'name       (~a (syntax-e id))
           'level      level
-          'show       str
+          'show       show
+          'values     vals
           'definition (->srcloc-as-list id)
-          'signature  (get-signature-stx-prop id)
+          'formals    (get-formals-stx-prop id)
           'caller     (and caller (->srcloc-as-list caller))
           'context    (and context (->srcloc-as-list context))
           'thread     (~a (object-name (current-thread)))
