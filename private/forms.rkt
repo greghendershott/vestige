@@ -40,12 +40,13 @@
          trace-expression)
 
 (define-syntax (trace-lambda stx)
-  ;; For the identifier syntax -- which may have useful stx props
-  ;; attached for expressions and formals, which we'd like to give
-  ;; to wrap-with-tracing -- we accept a #:name parameter. Otherwise
-  ;; we fall back to making our own identifier from the inferred name
-  ;; symbol. In any case, if the name identifier lacks a sig stx prop,
-  ;; we give it one corresponding to the formals.
+  ;; `wrap-with-tracing` takes a piece of identifier syntax. It uses
+  ;; the symbol value in messages. It also looks for some syntax
+  ;; properties. When #:name is supplied we use that. Otherwise we
+  ;; fall back to making our own identifier from the inferred name
+  ;; symbol. In any case, if the name identifier lacks a formals
+  ;; syntax property, we give it one corresponding to the formals
+  ;; syntax.
   (define (infer-name-or-error)
     (or (syntax-local-infer-name stx)
         (raise-syntax-error
@@ -53,10 +54,9 @@
          "Could not infer name; give a name explicitly using #:name"
          stx)))
   (syntax-parse stx
-    [(_ (~optional
-         (~seq #:name ID:id)
-         #:defaults ([ID (datum->syntax stx (infer-name-or-error) stx)]))
-        ARGS:formals BODY:expr ...)
+    [(_ (~optional (~seq #:name ID:id)
+                   #:defaults ([ID (datum->syntax stx (infer-name-or-error) stx)]))
+        ARGS:formals BODY:expr ...+)
      (with-syntax ([ID (if (get-formals-stx-prop #'ID)
                            #'ID ;keep existing
                            (add-formals-stx-prop #'ID #'ARGS))])
@@ -138,28 +138,31 @@
     ;; "Named `let`".
     [(_ NAME:id (~and BINDINGS ([ID:id E:expr] ...)) BODY ...+)
      (with-syntax ([NAME (add-formals-stx-prop #'NAME #'BINDINGS)])
-       (syntax/loc stx
+       (quasisyntax/loc stx
          (letrec ([NAME (trace-lambda #:name NAME (ID ...) BODY ...)])
-           (NAME E ...))))]
+           #,(syntax/loc #'NAME ;good srcloc for initial call
+               (tracing-#%app NAME E ...)))))]
     ;; Normal `let`
     [(_ E:expr ...+)
      (syntax/loc stx (let E ...))]))
 
-;; Note: Although it might seem silly to handle this with trace-lambda,
-;; as opposed to simply logging the expression source and value
-;; directly, the advantage is that the level will be correct. As a
-;; result if some tool is indenting and/or folding by level, this will
-;; appear naturally in relation to other trace-x forms -- including
-;; nested uses of trace-expression. We use expression->identifier to
-;; synthesize an identifier with a syntax property holding the datum
-;; of #'e for use when logging.
+;; Note: Although it might seem silly to handle this with
+;; trace-lambda, as opposed to simply logging the expression source
+;; and value directly, one advantage is that the level will be
+;; correct. As a result if some tool is indenting and/or folding by
+;; level, this will appear naturally in relation to other trace-x
+;; forms -- including nested uses of trace-expression. We use
+;; expression->identifier to synthesize an identifier with a syntax
+;; property holding the datum of #'e for use when logging.
 (define-syntax (trace-expression stx)
   (syntax-parse stx
-    [(_ E:expr)
-     (with-syntax ([id (add-formals-stx-prop/whole-form (expression->identifier #'E)
-                                                        #'E)])
+    [(_ EXPR:expr)
+     (with-syntax ([id (expression->identifier #'EXPR)])
        (syntax/loc stx
-         ((trace-lambda #:name id () E))))]))
+         (call-with-values (λ () EXPR)
+                           (trace-lambda #:name id
+                                         vs
+                                         (apply values vs)))))]))
 
 (module+ test
   (require racket/logging

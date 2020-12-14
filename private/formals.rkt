@@ -4,21 +4,14 @@
          "srcloc.rkt")
 
 (provide add-formals-stx-prop
-         add-formals-stx-prop/whole-form
          get-formals-stx-prop)
 
 (define property-key 'vestige-formals)
 
-(define (add-formals-stx-prop stx formals-stxs)
+(define (add-formals-stx-prop stx formals-stx)
   (syntax-property stx
                    property-key
-                   (formals-srcloc formals-stxs)
-                   #t)) ;preserved
-
-(define (add-formals-stx-prop/whole-form to-stx from-stx)
-  (syntax-property to-stx
-                   property-key
-                   (->srcloc-as-list from-stx)
+                   (formals-srcloc formals-stx)
                    #t)) ;preserved
 
 (define (get-formals-stx-prop stx)
@@ -26,20 +19,30 @@
 
 (define (formals-srcloc formals)
   (match (syntax->list formals)
-    [(list single)           (merged-srcloc single single)]
-    [(list first _ ... last) (merged-srcloc first last)]
+    ;; Handle formals being an identifier, e.g. (λ args _), in which
+    ;; case the srcloc is simply that of the identifier syntax.
+    [#f #:when (identifier? formals) (->srcloc-as-list formals)]
+    ;; Handle formals being one or more parameters.
+    [(list one)              (->srcloc-as-list one)]
+    [(list first _ ... last) (merge first last)]
+    ;; Handle formals being an empty list, e.g. (λ () _), i.e. no
+    ;; parameters, by using location at the close paren.
     [(list)
-     ;; Location is at the close paren
      (->srcloc-as-list
       (vector (syntax-source formals)
               (syntax-line formals)
               (+ (syntax-column formals) (sub1 (syntax-span formals)))
               (+ (syntax-position formals) (sub1 (syntax-span formals)))
-              0))]))
+              0))]
+    ;; Should never get here if caller used the `formals` syntax class
+    ;; from syntax/parse/lib/function-header, but just in case:
+    [_ (raise-syntax-error 'trace-lambda
+                           "Expected a list or an identifier"
+                           formals)]))
 
 ;; Given two stxs, produce srcloc for the span from the first to the
-;; last.
-(define (merged-srcloc first last)
+;; second.
+(define (merge first last)
   (define src  (syntax-source first))
   (define line (syntax-line first))
   (define col  (syntax-column first))
@@ -54,7 +57,7 @@
   (define there #'there)
   (let ([here here]
         [there there])
-    (match-define (list src line col pos span) (merged-srcloc here there))
+    (match-define (list src line col pos span) (merge here there))
     (check-equal? src (path->string (syntax-source here)))
     (check-equal? line (syntax-line here))
     (check-equal? col (syntax-column here))
@@ -63,7 +66,7 @@
                           (syntax-position here))))
   (let ([here here]
         [there here])
-    (match-define (list src line col pos span) (merged-srcloc here there))
+    (match-define (list src line col pos span) (merge here there))
     (check-equal? src (path->string (syntax-source here)))
     (check-equal? line (syntax-line here))
     (check-equal? col (syntax-column here))
