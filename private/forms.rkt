@@ -9,7 +9,7 @@
                      syntax/parse
                      syntax/parse/lib/function-header
                      "expression-id.rkt"
-                     "formals.rkt")
+                     "stxprops.rkt")
          (for-meta 2 racket/base)
          "core.rkt")
 
@@ -59,7 +59,9 @@
         ARGS:formals BODY:expr ...+)
      (with-syntax ([ID (if (get-formals-stx-prop #'ID)
                            #'ID ;keep existing
-                           (add-formals-stx-prop #'ID #'ARGS))])
+                           (add-stx-props #'ID
+                                          #:formals-stx #'ARGS
+                                          #:header-stxs (list #'ARGS)))])
        (syntax/loc stx
          (wrap-with-tracing (λ ARGS BODY ...) #'ID)))]))
 
@@ -70,9 +72,9 @@
   (define-syntax-class clause
     (pattern (formals:formals body:expr ...+)
              #:with len  (length (syntax->list #'formals))
-             #:with name (add-formals-stx-prop
-                          (format-id #'formals "~a" inferred-name)
-                          #'formals)))
+             #:with name (add-stx-props (format-id #'formals "~a" inferred-name)
+                                        #:formals-stx #'formals
+                                        #:header-stxs (list #'formals))))
   (syntax-parse stx
     [(_ CLAUSE:clause ...+)
      #:with INFERRED-NAME inferred-name
@@ -137,7 +139,9 @@
   (syntax-parse stx
     ;; "Named `let`".
     [(_ NAME:id (~and BINDINGS ([ID:id E:expr] ...)) BODY ...+)
-     (with-syntax ([NAME (add-formals-stx-prop #'NAME #'BINDINGS)])
+     (with-syntax ([NAME (add-stx-props #'NAME
+                                        #:formals-stx #'BINDINGS
+                                        #:header-stxs (list #'NAME #'BINDINGS))])
        (quasisyntax/loc stx
          (letrec ([NAME (trace-lambda #:name NAME (ID ...) BODY ...)])
            #,(syntax/loc #'NAME ;good srcloc for initial call
@@ -157,12 +161,10 @@
 (define-syntax (trace-expression stx)
   (syntax-parse stx
     [(_ EXPR:expr)
-     (with-syntax ([id (expression->identifier #'EXPR)])
+     (with-syntax ([id (add-stx-props/expression (expression->identifier #'EXPR)
+                                                 #'EXPR)])
        (syntax/loc stx
-         (call-with-values (λ () EXPR)
-                           (trace-lambda #:name id
-                                         vs
-                                         (apply values vs)))))]))
+         ((trace-lambda #:name id () EXPR))))]))
 
 (module+ test
   (require racket/logging

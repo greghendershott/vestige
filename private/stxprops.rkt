@@ -3,19 +3,50 @@
 (require racket/match
          "srcloc.rkt")
 
-(provide add-formals-stx-prop
-         get-formals-stx-prop)
+(provide add-stx-props
+         add-stx-props/expression
+         get-formals-stx-prop
+         get-header-stx-prop)
 
-(define property-key 'vestige-formals)
+;;; Adding the multiple special props
 
-(define (add-formals-stx-prop stx formals-stx)
-  (syntax-property stx
-                   property-key
-                   (formals-srcloc formals-stx)
-                   #t)) ;preserved
+(define (add-stx-props stx #:formals-stx formals-stx #:header-stxs header-stxs)
+  (add-formals-stx-prop (add-header-stx-prop stx (header-srcloc header-stxs))
+                        (formals-srcloc formals-stx)))
+
+(define (add-stx-props/expression stx expr-stx)
+  (define loc (->srcloc-as-list expr-stx))
+  (add-formals-stx-prop (add-header-stx-prop stx loc)
+                        loc))
+
+;;; The header prop
+
+(define header-property-key  'vestige-header)
+
+(define (add-header-stx-prop stx loc)
+  (syntax-property stx header-property-key loc #t)) ;preserved
+
+(define (header-srcloc stxs)
+  (match stxs
+    ;; Handle list with one or more syntaxes
+    [(list one)              (->srcloc-as-list one)]
+    [(list first _ ... last) (merge first last)]
+    [_ (raise-syntax-error 'trace-lambda
+                           "Expected a list of one or more syntaxes"
+                           stxs)]))
+
+(define (get-header-stx-prop stx)
+  (syntax-property stx header-property-key))
+
+;;; The formals prop
+
+(define formals-property-key 'vestige-formals)
+
+(define (add-formals-stx-prop stx loc)
+  (syntax-property stx formals-property-key loc #t)) ;preserved
 
 (define (get-formals-stx-prop stx)
-  (syntax-property stx property-key))
+  (syntax-property stx formals-property-key))
 
 (define (formals-srcloc formals)
   (match (syntax->list formals)
@@ -73,3 +104,7 @@
     (check-equal? pos (syntax-position here))
     (check-equal? span (- (+ (syntax-position there) (syntax-span there))
                           (syntax-position here)))))
+
+;; (define stx (add-stx-props #'base #:formals-stx #'(x y) #:header-stxs (list #'loop #'([x 0]))))
+;; (get-formals-stx-prop stx)
+;; (get-header-stx-prop stx)

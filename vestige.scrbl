@@ -89,6 +89,9 @@ additional information is captured and its disposition is different:
 
     @item{The @emph{definition} of the function being called.}
 
+    @item{The @emph{header} span within the definition. Tools can use
+    this to present logs in a UI resembling a step debugger.}
+
     @item{The @emph{formals} span within the definition. Tools can use
     this to present logs in a UI resembling a step debugger.}
 
@@ -189,7 +192,7 @@ The optional @racket[name] identifier is used for its symbol value as
 well as a bearer of one or more special syntax properties. One such
 property is the source location for the formals (the exact meaning of
 which differs among the various forms that expand to
-@racket[trace-lambda]) that appears as @racket['formas] in the
+@racket[trace-lambda]) that appears as @racket['formals] in the
 @secref["hash-table"]. When @racket[name] is not supplied, the
 identifier is inferred using @racket[syntax-local-infer-name] and the
 formals are the source location for @racket[kw-formals].}
@@ -332,10 +335,10 @@ representation of a @racket[srcloc] struct as a list. The first,
 @defmapping['definition srcloc-as-list?]{The location of the function
 definition or expression.}
 
-@defmapping['formals srcloc-as-list?]{The location of the formals.
-What this means varies among the forms. (The basic idea is that a tool
-could show a function call or expression @italic{in situ} at the
-location.)
+@defmapping['formals srcloc-as-list?]{The location of the formal
+parameters. What this means varies among the forms. (The basic idea is
+that a tool could show a function call or expression @italic{in situ}
+at the location.)
 
 For @racket[(trace-lambda (x y z) ____)] it covers the parameters
 @litchar{x y z}.
@@ -356,6 +359,16 @@ For @racket[trace-expression] it is the entire expression.
 
 In each case, the idea is that a tool could show something @italic{in
 situ} in the style of a step debugger.}
+
+@defmapping['header srcloc-as-list?]{The location of the header. What
+this means varies among the forms. It is often a super-span of the
+@racket['formals] mapping. The idea is that while @racket['formals] is
+a good place to show actual arguments in place of formal parameters
+when a function is called, the @racket['header] is a good place after
+which to show the resulting value(s). The distinction matters for
+things like @racket[trace-define], less so for things like
+@racket[trace-lambda], and not at all for @racket[trace-expression]
+(where both correspond to the entire expression.).}
 
 @defmapping['caller (or/c #f srcloc-as-list?)]{The location of the
 caller. This is only available when the call is from a module using

@@ -3,10 +3,11 @@
 (require racket/format
          racket/list
          racket/match
+         racket/string
          syntax/parse/define
-         "srcloc.rkt"
          "expression-id.rkt"
-         "formals.rkt")
+         "srcloc.rkt"
+         "stxprops.rkt")
 
 (provide log-args
          log-results
@@ -28,19 +29,22 @@
 (define (do-log-args id -tail? args kws kw-vals level -caller context)
   (define-values (show vals caller tail?)
     (match (expression-identifier->string id)
-      ;; Traced expressions: 1. Show the expression string. 2. Use
-      ;; definition loc as "caller" loc. 3. Disregard any tail-call
-      ;; flag.
+      ;; Traced expressions: Show the expression string. Disregard
+      ;; caller loc and tail call flag.
       [(? string? v)
-       (values v v id #f)]
-      ;; Traced function calls: 1. Show calling the function with
-      ;; plain and keyword args. Use supplied caller loc as-is.
+       (values v v #f #f)]
+      ;; Traced function calls:
       [_
-       (values (~a `(,(syntax-e id) ,@args ,@(append-map list kws kw-vals)))
-               (apply ~a #:separator " "
-                      (append args (append-map list kws kw-vals)))
-               -caller
-               -tail?)]))
+       (define vals (string-join (append (map ~v args)
+                                         (append-map list
+                                                     (map ~a kws)
+                                                     (map ~v kw-vals)))))
+       (define show (~a "("
+                        (syntax-e id)
+                        (if (equal? vals "") "" " ")
+                        vals
+                        ")"))
+       (values show vals -caller -tail?)]))
   (log! (~a (make-string (add1 level) #\>) " " show)
         (make-logger-event-value #t tail? id show vals level caller context)))
 
@@ -79,6 +83,7 @@
           'values     vals
           'definition (->srcloc-as-list id)
           'formals    (get-formals-stx-prop id)
+          'header     (get-header-stx-prop id)
           'caller     (and caller (->srcloc-as-list caller))
           'context    (and context (->srcloc-as-list context))
           'thread     (~a (object-name (current-thread)))
