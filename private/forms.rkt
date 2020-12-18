@@ -40,13 +40,13 @@
          trace-expression)
 
 (define-syntax (trace-lambda stx)
-  ;; `wrap-with-tracing` takes a piece of identifier syntax. It uses
-  ;; the symbol value in messages. It also looks for some syntax
+  ;; `make-chaperone-wrapper-proc` takes a piece of identifier syntax:
+  ;; it uses the symbol value in messages and it looks for some syntax
   ;; properties. When #:name is supplied we use that. Otherwise we
   ;; fall back to making our own identifier from the inferred name
   ;; symbol. In any case, if the name identifier lacks a formals
   ;; syntax property, we give it one corresponding to the formals
-  ;; syntax.
+  ;; syntax, as well as a header property.
   (define (infer-name-or-error)
     (or (syntax-local-infer-name stx)
         (raise-syntax-error
@@ -56,14 +56,17 @@
   (syntax-parse stx
     [(_ (~optional (~seq #:name ID:id)
                    #:defaults ([ID (datum->syntax stx (infer-name-or-error) stx)]))
-        ARGS:formals BODY:expr ...+)
+        FORMALS:formals BODY:expr ...+)
      (with-syntax ([ID (if (get-formals-stx-prop #'ID)
                            #'ID ;keep existing
                            (add-stx-props #'ID
-                                          #:formals-stx #'ARGS
-                                          #:header-stxs (list #'ARGS)))])
+                                          #:formals-stx #'FORMALS
+                                          #:header-stxs (list #'FORMALS)))])
        (syntax/loc stx
-         (wrap-with-tracing (λ ARGS BODY ...) #'ID)))]))
+         (chaperone-procedure (λ FORMALS BODY ...)
+                              (make-chaperone-wrapper-proc #'ID)
+                              chaperone-prop-key
+                              chaperone-prop-val)))]))
 
 (define-syntax (trace-case-lambda stx)
   (define inferred-name
@@ -178,6 +181,5 @@
                            _topic)
                    (check-equal? name "(+ 1 2)")
                    (check-equal? show (if call? "(+ 1 2)" "3"))])
-    (λ ()
-      (trace-expression (+ 1 2)))
+    (λ () (trace-expression (+ 1 2)))
     #:logger logger level topic))

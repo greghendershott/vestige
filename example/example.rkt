@@ -15,13 +15,13 @@
 (module explicit-example racket/base
   (require vestige/explicit)
   (trace-define (baz x) x)
-  (trace-define (foo x
+  (trace-define (kw-foo x
                      #:kw kw
                      #:keyword [keyword 42])
     (baz x)
     (trace-let loop ([x 4])
       (if (zero? x) (baz x) (loop (sub1 x)))))
-  (trace-define (bar x) (+ (foo x #:kw #f) 1))
+  (trace-define (bar x) (+ (kw-foo x #:kw #f) 1))
   (trace-define (hello x) (+ (bar x)))
   (hello 42)
   (define alice (lambda (x) x))
