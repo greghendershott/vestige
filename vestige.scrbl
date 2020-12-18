@@ -83,17 +83,15 @@ additional information is captured and its disposition is different:
   because logger events are received later and in another thread.}
 
   @item{@racket[srcloc] for various interesting things, when
-  available.
+  available:
 
    @itemlist[
 
     @item{The @emph{definition} of the function being called.}
 
-    @item{The @emph{header} span within the definition. Tools can use
-    this to present logs in a UI resembling a step debugger.}
-
-    @item{The @emph{formals} span within the definition. Tools can use
-    this to present logs in a UI resembling a step debugger.}
+    @item{The @emph{header} and @emph{formals} spans within the
+    definition. Tools can use this to present logs in a UI resembling
+    a step debugger.}
 
     @item{The @emph{caller} site. This information is only recorded
     for calls from modules where you use @racketmodname[vestige]'s
