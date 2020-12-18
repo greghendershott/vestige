@@ -1,66 +1,48 @@
 #lang racket/base
 
 (require (for-syntax racket/base
+                     racket/syntax
                      syntax/parse
                      syntax/parse/lib/function-header
                      "stxprops.rkt")
          racket/class
-         (only-in racket/list append-map)
-         "stxprops.rkt"
          "core.rkt")
 
-(provide trace-define/public
-         trace-define/override)
-
-#;
-(define-syntaxes (trace-define/public
-                  trace-define/override)
-  (let ([mk
-         (λ (decl-form)
-           (λ (stx)
-             (syntax-parse stx
-               [(_ (~and header (id:id . formals:formals)) body:expr ...+)
-                (with-syntax ([id (add-stx-props #'id
-                                                 #:formals-stx #'formals
-                                                 #:header-stxs (list #'header))])
-                  (quasisyntax/loc stx
-                    (begin
-                      (#,decl-form)
-                      (define-values (id)
-                        (chaperone-procedure (lambda formals body ...)
-                                             (make-wrapper-proc #'id))))))])))])
-    (values (mk #'public)
-            (mk #'override))))
-
-(define-syntax (trace-define/override stx)
+(define-syntax (define/provide-method-definer stx)
   (syntax-parse stx
-    [(_ (~and HEADER (ID:id . FORMALS:formals)) BODY:expr ...+)
-     (with-syntax ([ID (add-stx-props #'ID
-                                      #:formals-stx #'FORMALS
-                                      #:header-stxs (list #'HEADER))])
+    [(_ KEYWORD)
+     (with-syntax ([NAME (format-id #'KEYWORD
+                                    "trace-define/~a"
+                                    (syntax-e #'KEYWORD)
+                                    #:source #'KEYWORD)])
        (syntax/loc stx
          (begin
-           (override ID)
-           (define-values (ID)
-             (chaperone-procedure (lambda FORMALS BODY ...)
-                                  (make-chaperone-wrapper-proc #'ID)
-                                  chaperone-prop-key
-                                  chaperone-prop-val)))))]))
+          (define-syntax (NAME stx)
+            (syntax-parse stx
+              [(_ (~and HEADER (ID:id . FORMALS:formals)) BODY:expr ...+)
+               (with-syntax ([ID (add-stx-props #'ID
+                                                #:formals-stx #'FORMALS
+                                                #:header-stxs (list #'HEADER))])
+                 (syntax/loc stx
+                   (begin
+                     (KEYWORD ID)
+                     (define-values (ID)
+                       (chaperone-procedure (lambda FORMALS BODY (... ...))
+                                            (make-chaperone-wrapper-proc #'ID)
+                                            chaperone-prop-key
+                                            chaperone-prop-val)))))]))
+          (provide NAME))))]))
 
-(define-syntax (trace-define/public stx)
-  (syntax-parse stx
-    [(_ (~and HEADER (ID:id . FORMALS:formals)) BODY:expr ...+)
-     (with-syntax ([ID (add-stx-props #'ID
-                                      #:formals-stx #'FORMALS
-                                      #:header-stxs (list #'HEADER))])
-       (syntax/loc stx
-         (begin
-           (public ID)
-           (define-values (ID)
-             (chaperone-procedure (lambda FORMALS BODY ...)
-                                  (make-chaperone-wrapper-proc #'ID)
-                                  chaperone-prop-key
-                                  chaperone-prop-val)))))]))
+(define/provide-method-definer private)
+(define/provide-method-definer public)
+(define/provide-method-definer pubment)
+(define/provide-method-definer override)
+(define/provide-method-definer overment)
+(define/provide-method-definer augride)
+(define/provide-method-definer augment)
+(define/provide-method-definer public-final)
+(define/provide-method-definer override-final)
+(define/provide-method-definer augment-final)
 
 (module+ example
   (define fish%
