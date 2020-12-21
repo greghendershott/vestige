@@ -15,18 +15,33 @@
 (module explicit-example racket/base
   (require vestige/explicit)
   (trace-define (baz x) x)
-  (trace-define (kw-foo x
-                     #:kw kw
-                     #:keyword [keyword 42])
+  (trace-define (foo x)
     (baz x)
     (trace-let loop ([x 4])
       (if (zero? x) (baz x) (loop (sub1 x)))))
-  (trace-define (bar x) (+ (kw-foo x #:kw #f) 1))
-  (trace-define (hello x) (+ (bar x)))
+  (trace-define (bar x) (+ (foo x) 1))
+  (trace-define (hello x) (bar x))
   (hello 42)
   (define alice (lambda (x) x))
   (alice 34)) ;another tail call
 (require 'explicit-example)
+
+(module racket/trace racket/base
+  (require racket/trace)
+  (trace-define (baz x) x)
+  (trace-define (foo x)
+    (baz 12)
+    (trace-let loop ([x 4])
+      (if (zero? x) (baz x) (loop (sub1 x)))))
+  (trace-define (hello x) (baz x)))
+
+(module normal racket/base
+  (define (baz x) x)
+  (define (foo x)
+    (baz 12)
+    (let loop ([x 4])
+      (if (zero? x) (baz x) (loop (sub1 x)))))
+  (define (hello x) (baz x)))
 
 ;; This module is an example of letting vestige forms shadow the
 ;; racket/base ones.
