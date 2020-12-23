@@ -2,15 +2,14 @@
 
 (require (for-syntax racket/base
                      racket/match
-                     racket/string
+                     (only-in racket/string string-join)
                      (only-in racket/syntax format-id)
-                     syntax/define
-                     syntax/name
+                     (only-in syntax/define normalize-definition)
+                     (only-in syntax/name syntax-local-infer-name)
                      syntax/parse/lib/function-header
                      "expression-id.rkt"
                      "stxprops.rkt")
          syntax/parse/define
-         (for-meta 2 racket/base)
          "core.rkt")
 
 ;; NOTE: These surface macros are fairly different from racket/trace.
