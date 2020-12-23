@@ -62,11 +62,15 @@
                            (add-stx-props #'ID
                                           #:formals-stx #'FORMALS
                                           #:header-stxs (list #'FORMALS)))])
-       (syntax/loc stx
-         (chaperone-procedure (λ FORMALS BODY ...)
+       ;; Give the lambda expression stx's srcloc so that e.g.
+       ;; check-syntax tail reporting points to user's source not
+       ;; here. Macros below that expand to trace-lambda will also
+       ;; want to make sure that the trace-lamba expression's stx has
+       ;; srcloc from the user's program, and adjust it if necessary.
+       #`(chaperone-procedure #,(syntax/loc stx (lambda FORMALS BODY ...))
                               (make-chaperone-wrapper-proc #'ID)
                               chaperone-prop-key
-                              chaperone-prop-val)))]))
+                              chaperone-prop-val))]))
 
 (define-syntax (trace-case-lambda stx)
   (define inferred-name
@@ -77,21 +81,19 @@
              #:with len  (length (syntax->list #'formals))
              #:with name (add-stx-props (format-id #'formals "~a" inferred-name)
                                         #:formals-stx #'formals
-                                        #:header-stxs (list #'formals))))
+                                        #:header-stxs (list #'formals))
+             #:with trace-lambda (syntax/loc stx
+                                   (trace-lambda #:name name
+                                                 formals
+                                                 body ...))))
   (syntax-parse stx
     [(_ CLAUSE:clause ...+)
      #:with INFERRED-NAME inferred-name
      (quasisyntax/loc stx
        (lambda args
          (case (length args)
-           [(CLAUSE.len) (apply (trace-lambda #:name CLAUSE.name
-                                              CLAUSE.formals
-                                              CLAUSE.body ...)
-                                args)] ...
-           [else (apply raise-arity-error
-                        'INFERRED-NAME
-                        '(CLAUSE.len ...)
-                        args)])))]))
+           [(CLAUSE.len) (apply CLAUSE.trace-lambda args)] ...
+           [else (apply raise-arity-error 'INFERRED-NAME '(CLAUSE.len ...) args)])))]))
 
 (define-syntax (trace-define stx)
   (syntax-parse stx
@@ -119,7 +121,7 @@
          #,(let loop ([fss all-formals])
              (match fss
                [(list fs)
-                (quasisyntax/loc fs
+                (quasisyntax/loc stx
                   (trace-lambda #:name #,(name-id fs) #,fs
                                 BODY ...))]
                [(cons fs more)
@@ -146,7 +148,8 @@
                                         #:formals-stx #'BINDINGS
                                         #:header-stxs (list #'NAME #'BINDINGS))])
        (quasisyntax/loc stx
-         (letrec ([NAME (trace-lambda #:name NAME (ID ...) BODY ...)])
+         (letrec ([NAME #,(syntax/loc stx
+                            (trace-lambda #:name NAME (ID ...) BODY ...))])
            #,(syntax/loc #'NAME ;good srcloc for initial call
                (tracing-#%app NAME E ...)))))]
     ;; Normal `let`
