@@ -23,33 +23,8 @@
   (trace-define (hello x) (bar x))
   (hello 42)
   (define alice (lambda (x) x))
-  (alice 34)) ;another tail call
+  (alice 34))
 (require 'explicit-example)
-
-;; This example module here just to compare check-syntax tail
-;; reporting for known good examples to our own.
-(module racket/trace racket/base
-  (require racket/trace)
-  (trace-define (baz x) x)
-  (trace-define (foo x)
-    (baz 12)
-    (trace-let loop ([x 4])
-      (if (zero? x) (baz x) (loop (sub1 x)))))
-  (trace-define (hello x) (baz x)))
-
-;; This example module here just to compare check-syntax tail
-;; reporting for known good examples to our own.
-(module normal racket/base
-  (define (baz x) x)
-  (define (foo x)
-    (baz 12)
-    (let loop ([x 4])
-      (if (zero? x) (baz x) (loop (sub1 x)))))
-  (define (hello x) (baz x))
-  (define cl (case-lambda
-               [() 0]
-               [(x) x]
-               [(x y) (+ x y)])))
 
 ;; This module is an example of letting vestige forms shadow the
 ;; racket/base ones.
@@ -86,7 +61,7 @@
   (define uncurried (curried 99))
   (uncurried 1)
   (define alice (lambda (x) x))
-  (alice 34)) ;another tail call
+  (alice 34))
 (require 'implicit-example)
 
 (module thread-example racket/base
@@ -134,3 +109,30 @@
   (require vestige/explicit)
   (require vestige/private/receiver)
   ((trace-lambda #:name foo (x) x) 1))
+
+;; This example module here just to compare check-syntax tail
+;; reporting for known good examples to our own.
+(module racket/trace racket/base
+  (require racket/trace)
+  (trace-define (baz x) x)
+  (trace-define (foo x)
+    (baz 12)
+    (trace-let loop ([x 4])
+      (if (zero? x) (baz x) (loop (sub1 x)))))
+  (trace-define (hello x) (baz x))
+  (define alice (lambda (x) x))
+  (alice 34))
+
+;; This example module here just to compare check-syntax tail
+;; reporting for known good examples to our own.
+(module normal racket/base
+  (define (baz x) x)
+  (define (foo x)
+    (baz 12)
+    (let loop ([x 4])
+      (if (zero? x) (baz x) (loop (sub1 x)))))
+  (define (hello x) (baz x))
+  (define cl (case-lambda
+               [() 0]
+               [(x) x]
+               [(x y) (+ x y)])))
