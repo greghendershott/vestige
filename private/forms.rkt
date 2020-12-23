@@ -6,10 +6,10 @@
                      (only-in racket/syntax format-id)
                      syntax/define
                      syntax/name
-                     syntax/parse
                      syntax/parse/lib/function-header
                      "expression-id.rkt"
                      "stxprops.rkt")
+         syntax/parse/define
          (for-meta 2 racket/base)
          "core.rkt")
 
@@ -39,96 +39,94 @@
          trace-let
          trace-expression)
 
-(define-syntax (trace-lambda stx)
-  (define (infer-name-or-error)
+(begin-for-syntax
+  (define (infer-name-or-error stx who)
     (or (syntax-local-infer-name stx)
-        (raise-syntax-error
-         'trace-lambda
-         "Could not infer name; give a name explicitly using #:name"
-         stx)))
-  (syntax-parse stx
-    [(_ (~optional (~seq #:name NAME:id)
-                   #:defaults ([NAME (datum->syntax stx (infer-name-or-error) stx)]))
-        FORMALS:formals BODY:expr ...+)
-     ;; `make-chaperone-wrapper-proc` takes a piece of identifier
-     ;; syntax: it uses the symbol value in messages and it looks for
-     ;; some syntax properties. When #:name is supplied we use that.
-     ;; Otherwise we fall back to making our own identifier from the
-     ;; inferred name symbol. In any case, if the name identifier
-     ;; lacks a formals syntax property, we give it one corresponding
-     ;; to the formals syntax, as well as a header property.
-     #:with ID (if (get-formals-stx-prop #'NAME)
-                   #'NAME ;keep existing
-                   (add-stx-props #'NAME
-                                  #:formals-stx #'FORMALS
-                                  #:header-stxs (list #'FORMALS)))
-     ;; Give the lambda srcloc from the user's `stx` so that e.g.
-     ;; check-syntax tail reporting points to user's source not here.
-     ;; (Macros below that expand to us will also want to ensure that
-     ;; their use of trace-lamba has srcloc from the user's program.)
-     #:with LAM (syntax/loc stx (lambda FORMALS BODY ...))
-     #`(chaperone-procedure LAM
-                            (make-chaperone-wrapper-proc #'ID)
-                            chaperone-prop-key
-                            chaperone-prop-val)]))
+        (raise-syntax-error who
+                            "Could not infer name; give a name explicitly using #:name"
+                            stx)))
+
+  (define (inferred-name-id stx who)
+    (datum->syntax stx (infer-name-or-error stx who) stx)))
+
+(define-syntax-parser trace-lambda
+  [(_ (~optional (~seq #:name NAME:id)
+                 #:defaults ([NAME (inferred-name-id this-syntax 'trace-lambda)]))
+      FORMALS:formals BODY:expr ...+)
+   ;; `make-chaperone-wrapper-proc` takes a piece of identifier
+   ;; syntax: it uses the symbol value in messages and it looks for
+   ;; some syntax properties. When #:name is supplied we use that.
+   ;; Otherwise we fall back to making our own identifier from the
+   ;; inferred name symbol. In any case, if the name identifier
+   ;; lacks a formals syntax property, we give it one corresponding
+   ;; to the formals syntax, as well as a header property.
+   #:with NAME+PROPS (if (get-formals-stx-prop #'NAME)
+                         #'NAME ;keep existing properties
+                         (add-stx-props #'NAME
+                                        #:formals-stx #'FORMALS
+                                        #:header-stxs (list #'FORMALS)))
+   ;; Give the lambda srcloc from the user's this-syntax so that e.g.
+   ;; check-syntax tail reporting points to user's source not here.
+   ;; (Macros below that expand to us will also want to ensure that
+   ;; their use of trace-lamba has srcloc from the user's program.)
+   #:with PROC (syntax/loc this-syntax (lambda FORMALS BODY ...))
+   #`(chaperone-procedure PROC
+                          (make-chaperone-wrapper-proc #'NAME+PROPS)
+                          chaperone-prop-key
+                          chaperone-prop-val)])
 
 (define-syntax (trace-case-lambda stx)
-  (define inferred-name
-    (or (syntax-local-infer-name stx)
-        (raise-syntax-error 'trace-case-lambda "Could not infer name" stx)))
+  (define name (infer-name-or-error stx 'trace-case-lambda))
   (define-syntax-class clause
     (pattern (FORMALS:formals BODY:expr ...+)
              #:with len  (length (syntax->list #'FORMALS))
-             #:with name (add-stx-props (format-id #'FORMALS "~a" inferred-name)
+             #:with name (add-stx-props (format-id #'FORMALS "~a" name)
                                         #:formals-stx #'FORMALS
                                         #:header-stxs (list #'FORMALS))
              #:with trace-lambda (syntax/loc stx
-                                   (trace-lambda #:name name
-                                                 FORMALS
-                                                 BODY ...))))
+                                   (trace-lambda #:name name FORMALS BODY ...))))
   (syntax-parse stx
     [(_ CLAUSE:clause ...+)
-     #:with INFERRED-NAME inferred-name
+     #:with NAME name
      #`(lambda args
          (case (length args)
            [(CLAUSE.len) (apply CLAUSE.trace-lambda args)] ...
-           [else (apply raise-arity-error 'INFERRED-NAME '(CLAUSE.len ...) args)]))]))
+           [else (apply raise-arity-error 'NAME '(CLAUSE.len ...) args)]))]))
 
-(define-syntax (trace-define stx)
-  (syntax-parse stx
-    [(_ HEADER:function-header BODY:expr ...+)
-     ;; Flatten/reverse the formals to be able to generate the nested
-     ;; lambdas.
-     (define all-formals
-       (reverse
-        (let loop ([header #'HEADER])
-          (syntax-parse header
-            [(_:id . FORMALS:formals)
-             (list #'FORMALS)]
-            [(MORE . FORMALS:formals)
-             (cons #'FORMALS (loop #'MORE))]))))
-     (define curried? (not (null? (cdr all-formals))))
-     ;; For e.g. (define ((f x0 x1) y0 y1) _) synthesize trace-lambda
-     ;; #:name identifiers like "foo{x0 x1}" and "foo{y0 y1}",
-     ;; attaching a formals stx prop for the specific nested formals'
-     ;; srcloc.
-     (define (name-id fs)
-       (define params (if curried? (formals->curly-params fs) ""))
-       (format-id #f "~a~a" #'HEADER.name params #:source fs))
-     #`(define HEADER.name
-         #,(let produce-lambda ([all-formals all-formals])
-             (match all-formals
-               [(list fmls)
-                (quasisyntax/loc stx
-                  (trace-lambda #:name #,(name-id fmls) #,fmls
-                                BODY ...))]
-               [(cons fmls more)
-                (quasisyntax/loc fmls
-                  (trace-lambda #:name #,(name-id fmls) #,fmls
-                                #,(produce-lambda more)))])))]
-    [_
-     (define-values (name def) (normalize-definition stx #'lambda #t #t))
-     (quasisyntax/loc stx (define #,name #,def))]))
+(define-syntax-parser trace-define
+  [(_ HEADER:function-header BODY:expr ...+)
+   ;; Flatten/reverse the formals to be able to generate the nested
+   ;; lambdas.
+   (define all-formals
+     (reverse
+      (let loop ([header #'HEADER])
+        (syntax-parse header
+          [(_:id . FORMALS:formals)
+           (list #'FORMALS)]
+          [(MORE . FORMALS:formals)
+           (cons #'FORMALS (loop #'MORE))]))))
+   (define curried? (not (null? (cdr all-formals))))
+   ;; For e.g. (define ((f x0 x1) y0 y1) _) synthesize trace-lambda
+   ;; #:name identifiers like "foo{x0 x1}" and "foo{y0 y1}",
+   ;; attaching a formals stx prop for the specific nested formals'
+   ;; srcloc.
+   (define (name-id fs)
+     (define params (if curried? (formals->curly-params fs) ""))
+     (format-id #f "~a~a" #'HEADER.name params #:source fs))
+   #`(define HEADER.name
+       #,(let produce-lambda ([all-formals all-formals])
+           (match all-formals
+             [(list fmls)
+              (quasisyntax/loc this-syntax
+                (trace-lambda #:name #,(name-id fmls) #,fmls
+                              BODY ...))]
+             [(cons fmls more)
+              (quasisyntax/loc fmls
+                (trace-lambda #:name #,(name-id fmls) #,fmls
+                              #,(produce-lambda more)))])))]
+  [_
+   (define-values (name def) (normalize-definition this-syntax #'lambda #t #t))
+   (quasisyntax/loc this-syntax (define #,name #,def))])
 
 (begin-for-syntax
   (define (formals->curly-params fmls)
@@ -138,21 +136,20 @@
         "{" (string-join (map (compose1 symbol->string syntax-e)
                               (syntax->list #'(f.name ...)))) "}")])))
 
-(define-syntax (trace-let stx)
-  (syntax-parse stx
-    ;; "Named `let`".
-    [(_ ID:id (~and BINDINGS ([PARAM:id E:expr] ...)) BODY ...+)
-     #:with NAME (add-stx-props #'ID
-                                #:formals-stx #'BINDINGS
-                                #:header-stxs (list #'ID #'BINDINGS))
-     (quasisyntax/loc stx
-       (letrec ([NAME #,(syntax/loc stx
-                          (trace-lambda #:name NAME (PARAM ...) BODY ...))])
-         #,(syntax/loc #'NAME ;good srcloc for initial call
-             (tracing-#%app NAME E ...))))]
-    ;; Normal `let`
-    [(_ E:expr ...+)
-     (syntax/loc stx (let E ...))]))
+(define-syntax-parser trace-let
+  ;; "Named `let`".
+  [(_ ID:id (~and BINDINGS ([PARAM:id E:expr] ...)) BODY ...+)
+   #:with NAME (add-stx-props #'ID
+                              #:formals-stx #'BINDINGS
+                              #:header-stxs (list #'ID #'BINDINGS))
+   (quasisyntax/loc this-syntax
+     (letrec ([NAME #,(syntax/loc this-syntax
+                        (trace-lambda #:name NAME (PARAM ...) BODY ...))])
+       #,(syntax/loc #'NAME ;good srcloc for initial call
+           (tracing-#%app NAME E ...))))]
+  ;; Normal `let`
+  [(_ E:expr ...+)
+   (syntax/loc this-syntax (let E ...))])
 
 ;; Note: Although it might seem silly to handle this with
 ;; trace-lambda, as opposed to simply logging the expression source
@@ -162,13 +159,11 @@
 ;; forms -- including nested uses of trace-expression. We use
 ;; expression->identifier to synthesize an identifier with a syntax
 ;; property holding the datum of #'e for use when logging.
-(define-syntax (trace-expression stx)
-  (syntax-parse stx
-    [(_ EXPR:expr)
-     #:with NAME (add-stx-props/expression (expression->identifier #'EXPR)
-                                           #'EXPR)
-     (syntax/loc stx
-       ((trace-lambda #:name NAME () EXPR)))]))
+(define-syntax-parser trace-expression
+  [(_ E:expr)
+   #:with NAME (add-stx-props/expression (expression->identifier #'E) #'E)
+   (syntax/loc this-syntax
+     ((trace-lambda #:name NAME () E)))])
 
 (module+ test
   (require racket/logging
