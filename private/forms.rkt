@@ -23,13 +23,13 @@
 ;; identifier, for a couple special purposes:
 ;;
 ;; 1. For trace-expression, this captures the original expresssion
-;; datum string, for later use when logging.
+;; datum string, for later use when logging. See expresion->id.
 ;;
-;; 2. For all forms, a "formals" property says what portion of the
-;; source should be used if a "step tracer" tool wants to show an
-;; application at the definition site. This varies among forms, and
-;; can be the srloc for multiple consecutive pieces of original
-;; syntax, as with a named let.
+;; 2. For all forms, "formals" and "header" syntax properties say
+;; what portion of the source should be used if a "step tracer" tool
+;; wants to show an application at the definition site. This varies
+;; among forms, and can be the srloc for multiple consecutive pieces
+;; of original syntax, as with a named let. See add-stx-props.
 
 (provide trace-lambda
          (rename-out [trace-lambda trace-λ])
@@ -64,10 +64,11 @@
                          (add-stx-props #'NAME
                                         #:formals-stx #'FORMALS
                                         #:header-stxs (list #'FORMALS)))
-   ;; Give the lambda srcloc from the user's this-syntax so that e.g.
+   ;; Give the lambda srcloc from this-syntax so that e.g.
    ;; check-syntax tail reporting points to user's source not here.
-   ;; (Macros below that expand to us will also want to ensure that
-   ;; their use of trace-lamba has srcloc from the user's program.)
+   ;; (Macros below that expand to us, should also ensure that our use
+   ;; has srcloc from the user's program, using syntax/loc when
+   ;; necessary.)
    #:with PROC (syntax/loc this-syntax (lambda FORMALS BODY ...))
    #`(chaperone-procedure PROC
                           (make-chaperone-wrapper-proc #'NAME+PROPS)
@@ -75,22 +76,23 @@
                           chaperone-prop-val)])
 
 (define-syntax (trace-case-lambda stx)
-  (define name (infer-name-or-error stx 'trace-case-lambda))
+  (define name-sym (infer-name-or-error stx 'trace-case-lambda))
   (define-syntax-class clause
+    #:attributes (num-args trace-lambda)
     (pattern (FORMALS:formals BODY:expr ...+)
-             #:with len  (length (syntax->list #'FORMALS))
-             #:with name (add-stx-props (format-id #'FORMALS "~a" name)
+             #:with num-args (length (syntax->list #'FORMALS))
+             #:with name (add-stx-props (format-id #'FORMALS "~a" name-sym)
                                         #:formals-stx #'FORMALS
                                         #:header-stxs (list #'FORMALS))
              #:with trace-lambda (syntax/loc stx
                                    (trace-lambda #:name name FORMALS BODY ...))))
   (syntax-parse stx
     [(_ CLAUSE:clause ...+)
-     #:with NAME name
-     #`(lambda args
+     #:with NAME name-sym
+     #'(lambda args
          (case (length args)
-           [(CLAUSE.len) (apply CLAUSE.trace-lambda args)] ...
-           [else (apply raise-arity-error 'NAME '(CLAUSE.len ...) args)]))]))
+           [(CLAUSE.num-args) (apply CLAUSE.trace-lambda args)] ...
+           [else (apply raise-arity-error 'NAME '(CLAUSE.num-args ...) args)]))]))
 
 (define-syntax-parser trace-define
   [(_ HEADER:function-header BODY:expr ...+)
