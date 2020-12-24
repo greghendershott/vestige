@@ -7,7 +7,7 @@
          syntax/parse/define
          "expression-id.rkt"
          "srcloc.rkt"
-         "stxprops.rkt")
+         "loc-stx-props.rkt")
 
 (provide log-args
          log-results

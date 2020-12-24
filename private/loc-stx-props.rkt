@@ -3,18 +3,18 @@
 (require racket/match
          "srcloc.rkt")
 
-(provide add-stx-props
-         add-stx-props/expression
+(provide add-loc-props
+         add-loc-props/expression
          get-formals-stx-prop
          get-header-stx-prop)
 
 ;;; Adding the multiple special props
 
-(define (add-stx-props stx #:formals-stx formals-stx #:header-stxs header-stxs)
+(define (add-loc-props stx #:formals-stx formals-stx #:header-stxs header-stxs)
   (add-formals-stx-prop (add-header-stx-prop stx (header-srcloc header-stxs))
                         (formals-srcloc formals-stx)))
 
-(define (add-stx-props/expression stx expr-stx)
+(define (add-loc-props/expression stx expr-stx)
   (define loc (->srcloc-as-list expr-stx))
   (add-formals-stx-prop (add-header-stx-prop stx loc)
                         loc))

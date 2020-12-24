@@ -4,7 +4,7 @@
                      racket/syntax
                      syntax/parse
                      syntax/parse/lib/function-header
-                     "stxprops.rkt")
+                     "loc-stx-props.rkt")
          racket/class
          "core.rkt")
 
@@ -20,7 +20,7 @@
           (define-syntax (NAME stx)
             (syntax-parse stx
               [(_ (~and HEADER (ID:id . FORMALS:formals)) BODY:expr ...+)
-               (with-syntax ([ID (add-stx-props #'ID
+               (with-syntax ([ID (add-loc-props #'ID
                                                 #:formals-stx #'FORMALS
                                                 #:header-stxs (list #'HEADER))])
                  (syntax/loc stx

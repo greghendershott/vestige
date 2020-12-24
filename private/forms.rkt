@@ -8,7 +8,7 @@
                      (only-in syntax/name syntax-local-infer-name)
                      syntax/parse/lib/function-header
                      "expression-id.rkt"
-                     "stxprops.rkt")
+                     "loc-stx-props.rkt")
          syntax/parse/define
          "core.rkt")
 
@@ -29,7 +29,7 @@
 ;; what portion of the source should be used if a "step tracer" tool
 ;; wants to show an application at the definition site. This varies
 ;; among forms, and can be the srloc for multiple consecutive pieces
-;; of original syntax, as with a named let. See add-stx-props.
+;; of original syntax, as with a named let. See add-loc-props.
 
 (provide trace-lambda
          (rename-out [trace-lambda trace-λ])
@@ -61,7 +61,7 @@
    ;; to the formals syntax, as well as a header property.
    #:with name+props (if (get-formals-stx-prop #'name)
                          #'name ;keep existing properties
-                         (add-stx-props #'name
+                         (add-loc-props #'name
                                         #:formals-stx #'formals
                                         #:header-stxs (list #'formals)))
    ;; Give the lambda srcloc from this-syntax so that e.g.
@@ -81,7 +81,7 @@
     #:attributes (num-args trace-lambda)
     (pattern (formals:formals body:expr ...+)
              #:with num-args (length (syntax->list #'formals))
-             #:with name (add-stx-props (format-id #'formals "~a" name-sym)
+             #:with name (add-loc-props (format-id #'formals "~a" name-sym)
                                         #:formals-stx #'formals
                                         #:header-stxs (list #'formals))
              #:with trace-lambda (syntax/loc stx
@@ -140,7 +140,7 @@
 (define-syntax-parser trace-let
   ;; "Named let"
   [(_ id:id (~and bindings ([param:id init:expr] ...)) body ...+)
-   #:with name (add-stx-props #'id
+   #:with name (add-loc-props #'id
                               #:formals-stx #'bindings
                               #:header-stxs (list #'id #'bindings))
    (quasisyntax/loc this-syntax
@@ -154,7 +154,7 @@
 
 (define-syntax-parser trace-expression
   [(_ e:expr)
-   #:with ?name (add-stx-props/expression (expression->identifier #'e) #'e)
+   #:with ?name (add-loc-props/expression (expression->identifier #'e) #'e)
    (syntax/loc this-syntax
      ((trace-lambda #:name ?name () e)))])
 
