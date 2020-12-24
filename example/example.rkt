@@ -110,6 +110,34 @@
   (require vestige/private/receiver)
   ((trace-lambda #:name foo (x) x) 1))
 
+(module class-example racket/base
+  (require vestige/class/explicit)
+  (define fish%
+    (class object%
+      (init size)                ; initialization argument
+      (define current-size size) ; field
+      (super-new)                ; superclass initialization
+      (define/public (get-size)
+        current-size)
+      (trace-define/public (grow amt)
+                           (set! current-size (+ amt current-size)))
+      (define/public (eat other-fish)
+        (grow (send other-fish get-size)))))
+
+  (define picky-fish%
+    (class fish% (super-new)
+      (trace-define/override (grow amt)
+                             (super grow (* 3/4 amt)))))
+
+  (define daisy (new picky-fish% [size 20]))
+  (send daisy get-size)
+  (send daisy grow 100)
+  (send daisy get-size)
+
+  (define charlie (new fish% [size 500]))
+  (send daisy eat charlie))
+(require 'class-example)
+
 ;; This example module here just to compare check-syntax tail
 ;; reporting for known good examples to our own.
 (module racket/trace racket/base

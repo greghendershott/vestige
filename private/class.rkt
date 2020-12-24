@@ -2,36 +2,37 @@
 
 (require (for-syntax racket/base
                      racket/syntax
-                     syntax/parse
                      syntax/parse/lib/function-header
                      "loc-stx-props.rkt")
          racket/class
+         syntax/parse/define
          "core.rkt")
 
-(define-syntax (define/provide-method-definer stx)
-  (syntax-parse stx
-    [(_ KEYWORD)
-     (with-syntax ([NAME (format-id #'KEYWORD
-                                    "trace-define/~a"
-                                    (syntax-e #'KEYWORD)
-                                    #:source #'KEYWORD)])
-       (syntax/loc stx
-         (begin
-          (define-syntax (NAME stx)
-            (syntax-parse stx
-              [(_ (~and HEADER (ID:id . FORMALS:formals)) BODY:expr ...+)
-               (with-syntax ([ID (add-loc-props #'ID
-                                                #:formals-stx #'FORMALS
-                                                #:header-stxs (list #'HEADER))])
-                 (syntax/loc stx
-                   (begin
-                     (KEYWORD ID)
-                     (define-values (ID)
-                       (chaperone-procedure (lambda FORMALS BODY (... ...))
-                                            (make-chaperone-wrapper-proc #'ID)
-                                            chaperone-prop-key
-                                            chaperone-prop-val)))))]))
-          (provide NAME))))]))
+;; A macro-defining macro. Given a racket/class keyword like
+;; `private`, define an alternative to `define/private`:
+;; `trace-define/private`.
+(define-syntax-parser define/provide-method-definer
+  [(_ class-keyword)
+   #:with define-name (format-id #'class-keyword
+                                 "trace-define/~a"
+                                 (syntax-e #'class-keyword)
+                                 #:source #'class-keyword)
+   (syntax/loc this-syntax
+     (begin
+       (define-syntax-parser define-name
+         [(_ (~and header (method-name:id . formals:formals)) body:expr ...+)
+          #:with method-name+props (add-loc-props #'method-name
+                                                  #:formals-stx #'formals
+                                                  #:header-stxs (list #'header))
+          (syntax/loc this-syntax
+            (begin
+              (class-keyword method-name+props)
+              (define-values (method-name+props)
+                (chaperone-procedure (lambda formals body (... ...))
+                                     (make-chaperone-wrapper-proc #'method-name+props)
+                                     chaperone-prop-key
+                                     chaperone-prop-val))))])
+       (provide define-name)))])
 
 (define/provide-method-definer private)
 (define/provide-method-definer public)
@@ -44,28 +45,3 @@
 (define/provide-method-definer override-final)
 (define/provide-method-definer augment-final)
 
-(module+ example
-  (define fish%
-    (class object%
-      (init size)                ; initialization argument
-      (define current-size size) ; field
-      (super-new)                ; superclass initialization
-      (define/public (get-size)
-        current-size)
-      (trace-define/public (grow amt)
-                           (set! current-size (+ amt current-size)))
-      (define/public (eat other-fish)
-        (grow (send other-fish get-size)))))
-
-  (define picky-fish%
-    (class fish% (super-new)
-      (trace-define/override (grow amt)
-                             (super grow (* 3/4 amt)))))
-
-  (define daisy (new picky-fish% [size 20]))
-  (send daisy get-size)
-  (send daisy grow 100)
-  (send daisy get-size)
-
-  (define charlie (new fish% [size 500]))
-  (send daisy eat charlie))
