@@ -17,7 +17,7 @@
            (syntax-position stx)
            (syntax-span stx))]
     [_ (raise-argument-error '->srcloc-as-list
-                             "syntax? or srcloc as list? or vector?"
+                             "syntax? or srcloc? or srcloc as vector?"
                              v)]))
 
 (define (clean-source source)

@@ -1,7 +1,7 @@
 #lang racket/base
 
 (require racket/match
-         "srcloc.rkt")
+         "../../logging/private/srcloc.rkt")
 
 (provide add-loc-props
          add-loc-props/expression

@@ -6,8 +6,8 @@
                      racket/logging
                      syntax/define
                      syntax/name
-                     vestige/explicit
-                     vestige/logger)
+                     vestige/tracing/explicit
+                     vestige/tracing/logger)
           scribble/example)
 
 @; A way to get links to things from racket/base and racket/trace that
@@ -125,11 +125,12 @@ The structured logs can be used in two main ways:
  result of a special evaluator needing to rewrite your program into a
  ``step-debuggable'' program.
 
- The warm porridge: You can @racket[(require vestige)] to instrument
- everything in a module. Or if even that is too ``heavy'', you can
- @racket[(require vestige/explicit)] and instrument select items by
- replacing e.g. ``define'' with ``trace-define'' --- but not otherwise
- changing the source. As a rough analogy, this is like using Racket
+ The warm porridge: You can @racket[(require
+ vestige/tracing/implicit)] to instrument everything in a module. Or
+ if even that is too ``heavy'', you can @racket[(require
+ vestige/tracing/explicit)] and instrument select items by replacing
+ e.g. ``define'' with ``trace-define'' --- but not otherwise changing
+ the source. As a rough analogy, this is like using Racket
  @racketmodname[racket/contract] or @racketmodname[syntax/parse]:
  Although you do change the source, the change is minimal and feels
  more @italic{*waves hands*} ``declarative''.
@@ -156,13 +157,14 @@ The structured logs can be used in two main ways:
 
 @section{Instrumenting all functions in a module}
 
-@defmodule[vestige]
+@defmodule[vestige/tracing/implicit]
 
-The @racketmodname[vestige] module provides the same forms as does
-@racketmodname[vestige/explicit], but named without the ``trace-''
-prefix. For example @racket[trace-define] is provided renamed as
-@racket[define]. As a result, requiring this module shadows those
-definitions from the @racketmodname[racket/base] language.
+The @racketmodname[vestige/tracing/implicit] module provides the same
+forms as does @racketmodname[vestige/tracing/explicit], but named
+without the ``trace-'' prefix. For example @racket[trace-define] is
+provided renamed as @racket[define]. As a result, requiring this
+module shadows those definitions from the @racketmodname[racket/base]
+language.
 
 In other words, @racket[(require vestige)] is a convenient way to
 trace everything in a module without otherwise needing to litter its
@@ -174,11 +176,11 @@ so that you may use that on specific expressions of special interest.
 
 @section{Instrumenting specific functions or expressions}
 
-@defmodule[vestige/explicit]
+@defmodule[vestige/tracing/explicit]
 
-The @racketmodname[vestige/explicit] module provides distinctly named
-forms. Use this when you want to instrument only some functions or
-expressions in a module.
+The @racketmodname[vestige/tracing/explicit] module provides
+distinctly named forms. Use this when you want to instrument only some
+functions or expressions in a module.
 
 @defform[(trace-lambda [#:name name] kw-formals body ...+)]{
 
@@ -268,7 +270,7 @@ module.
 
 @section{Using a log receiver}
 
-@defmodule[vestige/logger]
+@defmodule[vestige/tracing/logger]
 
 This module provides several constant values that are useful when you
 want to make a @tech/ref{log receiver} --- either writing one from
@@ -390,7 +392,7 @@ with a @racket[complete-path?] source.}
 
 @(define-syntax-rule (ex/show pre-content ...)
    (let ((e (make-base-eval)))
-     (examples #:eval e #:hidden (require vestige/private/receiver))
+     @;(examples #:eval e #:hidden (require vestige/private/receiving))
      (ex e pre-content ...)))
 
 @(define-syntax-rule (ex/no-show pre-content ...)
@@ -411,7 +413,7 @@ Here is a small example of what the ``message'' and ``data'' slots of
 logger event vectors look like:
 
 @ex/show[
-  (require vestige/explicit)
+  (require vestige/tracing/explicit)
   (trace-define (f x) (+ 1 x))
   (trace-define (g x) (+ 1 (f x)))
   (g 42)
@@ -434,7 +436,7 @@ internal definitions of functions, in which case you control the
 name.}
 
 @ex/show[
-  (require vestige/explicit)
+  (require vestige/tracing/explicit)
   (trace-define ((f x0 x1) y0 y1)
     (+ x0 x1 y0 y1))
   ((f 1 2) 3 4)
@@ -448,7 +450,7 @@ documentation environment, we arranged a simple @tech/ref{log
 receiver} thread much like this:
 
 @racketblock[
-  (require vestige/logger)
+  (require vestige/tracing/logger)
   (define receiver (make-log-receiver logger level))
   (define (receive)
     (pretty-print (match (sync receiver)
@@ -468,8 +470,8 @@ extracts the @italic{data} member of the vector and converts that
   (require json
            racket/logging
            racket/match
-           vestige/explicit
-           vestige/logger)
+           vestige/tracing/explicit
+           vestige/tracing/logger)
   (define (example)
     (trace-define (f x) (+ 1 x))
     (trace-define (g x) (+ 1 (f x)))

@@ -1,7 +1,7 @@
 #lang racket/base
 
-(require "private/core.rkt")
-(provide (rename-out [tracing-#%app #%app]))
+(require "../app.rkt")
+(provide #%app)
 
 (require "private/forms.rkt")
 (provide (rename-out [trace-define define]

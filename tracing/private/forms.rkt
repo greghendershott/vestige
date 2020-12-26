@@ -10,6 +10,7 @@
                      "expression-id.rkt"
                      "loc-stx-props.rkt")
          syntax/parse/define
+         "../../logging/private/app.rkt"
          "core.rkt")
 
 ;; NOTE: These surface macros are fairly different from racket/trace.
@@ -154,9 +155,9 @@
 
 (define-syntax-parser trace-expression
   [(_ e:expr)
-   #:with ?name (add-loc-props/expression (expression->identifier #'e) #'e)
+   #:with name (add-loc-props/expression (expression->identifier #'e) #'e)
    (syntax/loc this-syntax
-     ((trace-lambda #:name ?name () e)))])
+     ((trace-lambda #:name name () e)))])
 
 (module+ test
   (require racket/logging

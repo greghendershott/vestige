@@ -8,28 +8,33 @@
 ;; submodules run; if this were at the top file module level, it would
 ;; run later.
 (module receiver racket/base
-  (require vestige/private/receiver))
+  (require vestige/private/receiving))
 (require 'receiver)
 
 ;; This module is an example of using the explicit trace-x forms.
 (module explicit-example racket/base
-  (require vestige/explicit)
+  (require vestige/tracing/explicit
+           vestige/logging)
+  (with-more-logging-info (log-fatal "outside"))
   (trace-define (baz x) x)
   (trace-define (foo x)
+    (with-more-logging-info (log-fatal "inside"))
+    (with-more-logging-depth
+      (with-more-logging-info (log-fatal "inside, nested")))
     (baz x)
     (trace-let loop ([x 4])
       (if (zero? x) (baz x) (loop (sub1 x)))))
   (trace-define (bar x) (+ (foo x) 1))
   (trace-define (hello x) (bar x))
   (hello 42)
-  (define alice (lambda (x) x))
+  (define alice (trace-lambda (x) x))
   (alice 34))
 (require 'explicit-example)
 
 ;; This module is an example of letting vestige forms shadow the
 ;; racket/base ones.
 (module implicit-example racket/base
-  (require vestige
+  (require vestige/tracing/implicit
            racket/match)
   (define (baz x) x)
   (define (foo x)
@@ -62,10 +67,10 @@
   (uncurried 1)
   (define alice (lambda (x) x))
   (alice 34))
-(require 'implicit-example)
+;;(require 'implicit-example)
 
 (module thread-example racket/base
-  (require vestige)
+  (require vestige/tracing/implicit)
   (define (foo x) x)
   (define (t1-thunk) (for ([n 2]) (foo n) (sleep 0)))
   (define (t2-thunk) (for ([n 2]) (foo n) (sleep 0)))
@@ -74,10 +79,10 @@
   (for (#:when (and (thread-running? t1)
                     (thread-running? t2)))
     (sleep 1)))
-(require 'thread-example)
+;;(require 'thread-example)
 
 (module hash-update-example racket/base
-  (require vestige
+  (require vestige/tracing/implicit
            racket/set)
   (define ht (make-hash))
   (define (add k v)
@@ -88,30 +93,15 @@
   (add 'key 0)
   (add 'key 1)
   ht)
-(require 'hash-update-example)
-
-(module intercepted-logger-example racket/base
-  (require racket/logging
-           racket/match
-           vestige/explicit
-           vestige/logger
-           json)
-  (define (example)
-    (trace-define (f x) (+ 1 x))
-    (f 42)
-    (trace-expression (* 2 3)))
-  (define interceptor
-    (match-lambda [(vector _level _str value _topic)
-                   (displayln (jsexpr->string value))]))
-  (with-intercepted-logging interceptor example #:logger logger level topic))
+;;(require 'hash-update-example)
 
 (module m racket/base
-  (require vestige/explicit)
-  (require vestige/private/receiver)
+  (require vestige/tracing/explicit)
+  (require vestige/private/receiving)
   ((trace-lambda #:name foo (x) x) 1))
 
 (module class-example racket/base
-  (require vestige/class/explicit)
+  (require vestige/tracing/class/explicit)
   (define fish%
     (class object%
       (init size)                ; initialization argument
@@ -136,7 +126,7 @@
 
   (define charlie (new fish% [size 500]))
   (send daisy eat charlie))
-(require 'class-example)
+;;(require 'class-example)
 
 ;; This example module here just to compare check-syntax tail
 ;; reporting for known good examples to our own.

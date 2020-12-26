@@ -1,4 +1,4 @@
 #lang racket/base
 
-(require "private/core.rkt")
+(require "logging/private/app.rkt")
 (provide (rename-out [tracing-#%app #%app]))
