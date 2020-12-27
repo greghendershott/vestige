@@ -13,7 +13,7 @@
                      define/override-final
                      define/augment-final))
 
-(require "../private/class.rkt")
+(require "../../private/tracing/class.rkt")
 (provide (rename-out
           [trace-define/private        define/private]
           [trace-define/public         define/public]

@@ -7,8 +7,8 @@
          syntax/parse/define
          "expression-id.rkt"
          "loc-stx-props.rkt"
-         "../../logging/private/srcloc.rkt"
-         "../../logging/private/common.rkt")
+         "../logging/srcloc.rkt"
+         "../logging/common.rkt")
 
 (provide log-args
          log-results
@@ -19,14 +19,21 @@
          tracing-data
          make-tracing-data)
 
-(define tracing-key (make-continuation-mark-key 'vestige/tracing))
+;;; continuation mark
+
+(define tracing-key (make-continuation-mark-key 'tracing))
+
+(define-simple-macro (with-tracing-mark data e:expr)
+  (with-continuation-mark tracing-key data e))
 
 (define (tracing-data cms)
    (continuation-mark-set-first cms tracing-key))
 
+;;; logging
+
 (define logger (current-logger))
 (define level 'debug)
-(define topic 'vestige-tracing)
+(define topic 'vestige/tracing)
 
 (define (log! message)
   ;; assumes we already did log-level? test
@@ -60,8 +67,7 @@
                         vals
                         ")"))
        (values show vals -tail?)]))
-  (with-continuation-mark
-    tracing-key
+  (with-tracing-mark
     (make-tracing-data #t tail? id show vals)
     (with-more-logging-info
       (log! (~a (make-string depth #\>) " " show)))))
@@ -76,8 +82,7 @@
           [(list)   "#<void>"]
           [(list v) (~v v)]
           [vs       (~s (cons 'values vs))])))
-  (with-continuation-mark
-    tracing-key
+  (with-tracing-mark
     (make-tracing-data #f #f id vals vals)
     (with-more-logging-info
      (log! (~a (make-string depth #\<) " " vals)))))

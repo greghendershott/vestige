@@ -3,7 +3,7 @@
 (require "../app.rkt")
 (provide #%app)
 
-(require "private/forms.rkt")
+(require "../private/tracing/forms.rkt")
 (provide (rename-out [trace-define define]
                      [trace-lambda lambda]
                      [trace-case-lambda case-lambda]

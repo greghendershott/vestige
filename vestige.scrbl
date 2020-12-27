@@ -32,6 +32,46 @@
 
 @section{Introduction}
 
+This package covers logging generally, as well as tracing.
+
+@section{Logging}
+
+@defmodule[vestige/logging]
+
+This module uses continuation marks to associate extra information
+with normal logging functions and forms such as the predefined
+@racket[log-message], @racket[log-debug] and friends, as well as
+log-topic-level forms created by @racket[define-logger].
+
+@defform[(with-more-logging-depth e ...+)]{Increases the logging depth
+for all logging calls within its dynamic extent. This allows for a
+grouping/indenting presentation in a log receiver that knows how to
+retrieve the depth.
+
+The default depth is zero. This form temporarily increases the depth
+by one for the dynamic extent of the form. Of course you may nest
+these arbitrarily.
+
+When you use @racketmodname[vestige/tracing], the depth at any point
+is the depth of the traced call(s). Normal logging automatically uses
+that depth. For example a @racket[log-info] in the body of a traced
+function is automatically at the same depth as the tracing log output
+showing the function as been called. You only need to use this form if
+you want to increase the depth even more.}
+
+@defform[(with-more-logging-info e ...+)]{Eagerly captures information
+like @racket[current-inexact-milliseconds] and @racket[current-thread]
+in a continuation mark. Capturing such information eagerly is
+important because logger events are received later and in a different
+thread; even if you were to use a custom log receiver, you could not
+add it accurately then and there.
+
+Note: Within each form, all logging calls share the same information.
+To give each logging call distinct information, put each within its
+own form.}
+
+@section{Tracing}
+
 @margin-note{Because ``trace'' is already used by the
 @hyperlink["https://pkgs.racket-lang.org/package/trace"]{trace} and
 @hyperlink["https://pkgs.racket-lang.org/package/errortrace-lib"]{errortrace}
@@ -94,7 +134,7 @@ additional information is captured and its disposition is different:
     a step debugger.}
 
     @item{The @emph{caller} site. This information is only recorded
-    for calls from modules where you use @racketmodname[vestige]'s
+    for calls from modules where you use @racketmodname[vestige/app]'s
     @racket[#%app] to replace @racketmodname[racket/base]'s
     @|#%app-id|. Although useful for editing/debugging tools, this
     imposes some runtime overhead for all function calls in such a
@@ -238,17 +278,17 @@ simply directly logging the @racket[expression] datum and the
 resulting value --- is that the level (``call depth'') in relation to
 other calls, as well as to nested uses of @racket[trace-expression],
 will be available and correct for tools that use levels for indent or
-other purposes.}
+other purposes.
 
-@defform[(#%app expr ...+)]{
-
-Expands to @racket[(with-continuation-mark key loc (#%app expr ...))],
-where @racket[key] is a private value, @racket[loc] is @racket[srcloc]
-of the call site, and @|#%app-id| is that of
-@racketmodname[racket/base].
-
-Using this is optional. Although it allows call site information to be
-logged, it imposes some runtime overhead.}
+NOTE: This rationale is bogus now that basic logging is automatically
+``enriched'' with a continuation mark for ``depth''. The only
+remaining special thing about this form is that it captures source
+location spans for the formals and header, both of which are simply
+the entire original expression. If a ``with-logging-srcloc'' form
+could do that, then this form could be replaced by a
+@racket[log-expression] form that is simply
+@racket[(with-more-logging-info (with-logging-srcloc (log-debug "~a =>
+~a" (quote e) e)))].}
 
 
 @section{Recording call sites}
@@ -266,6 +306,16 @@ In other words, @racket[(require vestige/app)] is a convenient way to
 enable call-site information for @emph{calls from} that module, but
 otherwise you don't want to instrument anything @emph{defined} in that
 module.
+
+@defform[(#%app expr ...+)]{
+
+Expands to @racket[(with-continuation-mark key loc (#%app expr ...))],
+where @racket[key] is a private value, @racket[loc] is @racket[srcloc]
+of the call site, and @|#%app-id| is that of
+@racketmodname[racket/base].
+
+Using this is optional. Although it allows call site information to be
+logged, it imposes some runtime overhead.}
 
 
 @section{Using a log receiver}
@@ -372,8 +422,8 @@ things like @racket[trace-define], less so for things like
 
 @defmapping['caller (or/c #f srcloc-as-list?)]{The location of the
 caller. This is only available when the call is from a module using
-@racketmodname[vestige]'s @racket[#%app]. Otherwise the value will be
-@racket[#f].}
+@racketmodname[vestige/app]'s @racket[#%app]. Otherwise the value will
+be @racket[#f].}
 
 @defmapping['context (or/c #f srcloc-as-list?)]{The location of the
 context surrounding the call site. This can be @racket[#f] when
@@ -384,6 +434,8 @@ with a @racket[complete-path?] source.}
 @section{Examples}
 
 @(define-syntax-rule (ex eval pre-content ...)
+   (void)
+   #;
    (examples #:eval eval
              #:no-prompt
              #:label #f
@@ -461,10 +513,11 @@ receiver} thread much like this:
 ]
 
 Another way to make a log receceiver is to use the values from
-@racketmodname[vestige/logger] and the @racketmodname[racket/logging]
-convenience function @racket[with-intercepted-logging]. This example
-extracts the @italic{data} member of the vector and converts that
-@racket[hasheq] to JSON:
+@racketmodname[vestige/tracing/logger] and the
+@racketmodname[racket/logging] convenience function
+@racket[with-intercepted-logging]. This example extracts the
+@italic{data} member of the vector and converts that @racket[hasheq]
+to JSON:
 
 @ex/no-show[
   (require json

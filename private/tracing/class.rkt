@@ -27,6 +27,10 @@
           (syntax/loc this-syntax
             (begin
               (class-keyword method-name+props)
+              ;; Here racket/class need us to expand to something
+              ;; matching its method-definition grammar. For the
+              ;; method-procedure fortunately we can expand to
+              ;; chaperone-procedure.
               (define-values (method-name+props)
                 (chaperone-procedure (lambda formals body (... ...))
                                      (make-chaperone-wrapper-proc #'method-name+props)

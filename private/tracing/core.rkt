@@ -1,7 +1,7 @@
 #lang racket/base
 
 (require racket/match
-         "../../logging/private/depth.rkt"
+         "../logging/depth.rkt"
          "logger.rkt")
 
 (provide make-chaperone-wrapper-proc

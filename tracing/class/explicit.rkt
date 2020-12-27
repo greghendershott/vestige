@@ -3,7 +3,7 @@
 (require racket/class)
 (provide (all-from-out racket/class))
 
-(require "../private/class.rkt")
+(require "../../private/tracing/class.rkt")
 (provide trace-define/private
          trace-define/public
          trace-define/pubment

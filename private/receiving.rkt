@@ -2,11 +2,11 @@
 
 (require racket/match
          racket/pretty
-         "../logging/private/app.rkt"
-         "../logging/private/context.rkt"
-         "../logging/private/depth.rkt"
-         "../logging/private/common.rkt"
-         "../tracing/private/logger.rkt")
+         "logging/app.rkt"
+         "logging/context.rkt"
+         "logging/depth.rkt"
+         "logging/common.rkt"
+         "tracing/logger.rkt")
 
 (define receiver (make-log-receiver (current-logger) level topic 'fatal #f))
 (define (receive)

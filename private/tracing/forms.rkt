@@ -10,7 +10,7 @@
                      "expression-id.rkt"
                      "loc-stx-props.rkt")
          syntax/parse/define
-         "../../logging/private/app.rkt"
+         "../logging/app.rkt"
          "core.rkt")
 
 ;; NOTE: These surface macros are fairly different from racket/trace.
@@ -158,18 +158,3 @@
    #:with name (add-loc-props/expression (expression->identifier #'e) #'e)
    (syntax/loc this-syntax
      ((trace-lambda #:name name () e)))])
-
-(module+ test
-  (require racket/logging
-           racket/match
-           rackunit
-           "logger.rkt")
-  (with-intercepted-logging
-    (match-lambda [(vector _level
-                           _message
-                           (hash-table ['call call?] ['name name] ['show show])
-                           _topic)
-                   (check-equal? name "(+ 1 2)")
-                   (check-equal? show (if call? "(+ 1 2)" "3"))])
-    (λ () (trace-expression (+ 1 2)))
-    #:logger logger level topic))

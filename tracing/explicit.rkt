@@ -1,6 +1,6 @@
 #lang racket/base
 
-(require "private/forms.rkt")
+(require "../private/tracing/forms.rkt")
 (provide trace-define
          trace-lambda
          trace-λ
