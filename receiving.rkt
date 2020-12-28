@@ -6,6 +6,7 @@
          "private/logging/context.rkt"
          "private/logging/depth.rkt"
          "private/logging/common.rkt"
+         "private/logging/performance.rkt"
          (rename-in "private/tracing/logger.rkt"
                     [logger tracing-logger]
                     [topic tracing-topic]
@@ -21,7 +22,9 @@
          cms->caller-srcloc
          cms->context-srcloc
          cms->common-data
-         cms->tracing-data)
+         cms->tracing-data
+         cms->performance-stats
+         performance-vectors->hasheq)
 
 (define (log-receiver-vector->hasheq v)
   (match v

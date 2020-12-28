@@ -3,7 +3,8 @@
 (require racket/match
          syntax/parse/define)
 
-(provide cms->performance-data
+(provide cms->performance-stats
+         performance-vectors->hasheq
          with-performance-stats)
 
 ;; Information from vector-set-performance-stats!
@@ -12,13 +13,10 @@
 
 (define key (make-continuation-mark-key 'performance))
 
-(define (call-with-data cms [proc values])
+(define (cms->performance-stats cms [proc values])
   (match (continuation-mark-set-first cms key)
     [(vector global thread) (proc global thread)]
     [_ #f]))
-
-(define (cms->performance-data cms)
-  (call-with-data cms vectors->hasheq))
 
 (define-simple-macro (with-performance-stats e:expr)
   (with-continuation-mark key (vectors) e))
@@ -30,7 +28,7 @@
   (vector-set-performance-stats! thread (current-thread))
   (vector global thread))
 
-(define (vectors->hasheq global thread)
+(define (performance-vectors->hasheq global thread)
   (hasheq 'global
           (for/hasheq ([k (in-list '(current-process-milliseconds
                                      current-milliseconds
@@ -60,4 +58,7 @@
   (hash-ref ht 'b)
   (collect-garbage)
   (with-performance-stats
-    (cms->performance-data (current-continuation-marks))))
+    (cms->performance-stats (current-continuation-marks)))
+  (with-performance-stats
+    (cms->performance-stats (current-continuation-marks)
+                            performance-vectors->hasheq)))

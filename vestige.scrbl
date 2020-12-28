@@ -33,11 +33,29 @@
 @(define (tech/ref . pre-content)
    (apply tech #:doc '(lib "scribblings/reference/reference.scrbl") pre-content))
 
+@(define-syntax-rule (ex eval pre-content ...)
+   (examples #:eval eval
+             #:no-prompt
+             #:label #f
+             #:preserve-source-locations
+             pre-content ...))
+
+@(define-syntax-rule (ex/show pre-content ...)
+   (let ((e (make-base-eval)))
+     (examples #:eval e #:hidden (require (submod vestige/receiving private start)))
+     (ex e pre-content ...)))
+
+@(define-syntax-rule (ex/no-show pre-content ...)
+   (ex (make-base-eval) pre-content ...))
+
+@(define-syntax-rule (defmapping key type pre-contents ...)
+   (defthing #:kind "mapping" #:link-target? #f key type pre-contents ...))
+
 @title{Vestige}
 
 @section{Introduction}
 
-This package enhances logging generally, and handles tracing as a
+This package enhances logging generally, and, treats tracing as a
 particular kind of logging.
 
 
@@ -54,9 +72,9 @@ function calls and results, as well as expression evaluations.
 
 The information is supplied using structured logging.
 
-You can minimize cross-cutting concerns.
-
 Intended uses include both ``debugging'' and ``devops''.
+
+Intended benefits include minimizing cross-cutting concerns.
 
 
 @subsection{What it does differently from @racketmodname[racket/trace]}
@@ -83,8 +101,8 @@ additional information is captured and its disposition is different:
 
  @itemlist[
 
-  @item{Tracing logging uses @racket[with-more-logging-info] to
-  capture timing and thread information eagerly.}
+  @item{Timing and thread information is captured eagerly using
+  @racket[with-more-logging-info].}
 
   @item{@racket[srcloc] for various interesting things, when
   available:
@@ -97,8 +115,8 @@ additional information is captured and its disposition is different:
     definition. Tools can use this to present logs in a UI resembling
     a step debugger.}
 
-    @item{Additional information captured by
-    @racketmodname[vestige/logging].}]}]}]
+    @item{Other srcloc information captured by
+    @racketmodname[vestige/logging] like the context and caller.}]}]}]
 
 Also, @racketmodname[vestige/tracing/class/explicit] enables tracing
 @racketmodname[racket/class] method definitions, such as
@@ -106,7 +124,7 @@ Also, @racketmodname[vestige/tracing/class/explicit] enables tracing
 
 @subsection{Two main use cases: ``debugging'' and ``devops''}
 
-The structured logs can be used in two main ways:
+Structured tracing logs can be used in two main ways:
 
 @itemlist[
 
@@ -226,7 +244,7 @@ formals appended; see @secref["curried-define-example"].}
 @defform*[((trace-let proc-id ([id init-expr] ...) body ...+)
            (trace-let         ([id init-expr] ...) body ...+))]{
 
-The first form is like @|trace-let-id| -- it instruments the function
+The first form is like @|trace-let-id| --- it instruments the function
 implicitly defined and called by a ``named let''. It expands to a
 @racket[trace-lambda] with a @racket[#:name] identifier whose formals
 property covers @racket[id] and @racket[init-expr].
@@ -311,11 +329,11 @@ the depth by one for the dynamic extent of the form.
 
 When you use a @racket[vestige/tracing] module like
 @racketmodname[vestige/tracing/explicit], the depth at any point is
-the depth of the traced call(s). Other logging automatically is at
-that depth, without using this form. For example a @racket[log-info]
-in the body of a traced function is automatically at the same depth as
-the tracing showing the function call. You only need to use this form
-if you want to increase the depth even more.
+the depth of the traced call(s). Other, ordinary logging is at that
+depth automatically --- without using this form. For example a
+@racket[log-info] in the body of a traced function is automatically at
+the same depth as the tracing showing the function call. (You only
+need use this form if you want to increase the depth even more.)
 
 See also @racket[cms->logging-depth].}
 
@@ -326,6 +344,11 @@ information eagerly matters because logger events are received later
 and in a different thread; even if you were to use a custom log
 receiver, it would be too late to add the information. See also
 @racket[cms->common-data].}
+
+@defform[(with-performance-stats result-expr)]{Eagerly captures two
+@racket[vector-set-performance-stats!] vectors, one global and the
+other for @racket[current-thread]. See also
+@racket[cms->performance-stats].}
 
 
 @subsection{Application site}
@@ -384,9 +407,6 @@ some may be ``live'' Racket values such as thread descriptors, in case
 your log receiver wants to do further processing. You may need to
 apply @racket[serializable-hasheq] to this hash-table before giving it
 hash-table to a function such as @racket[jsexpr->string].}
-
-@(define-syntax-rule (defmapping key type pre-contents ...)
-   (defthing #:kind "mapping" #:link-target? #f key type pre-contents ...))
 
 @subsubsection{High level}
 
@@ -466,7 +486,7 @@ Returns the first non-false srcloc value, if any, from
 @defproc[(cms->common-data [cms continuation-mark-set?])
          (or/c #f (and/c hash? hash-eq? immutable?))]{
 
-When a logger event is emitted in the dynamic context of
+When a logger event is emitted in the dynamic extent of
 @racket[with-more-logging-info] a mark can be retrieved by this
 function. The value is a @racket[hasheq] with at least the following
 mappings:
@@ -540,6 +560,32 @@ following mappings:
   return.}]
 }
 
+@deftogether[(
+  @defproc[(cms->performance-stats [cms continuation-mark-set?]
+                                   [proc (-> vector? vector? any) values])
+           any]
+  @defproc[(performance-vectors->hasheq [global vector?][thread vector?])
+           (or/c #f (and/c hash? hash-eq? immutable?))]
+)]{
+
+When a logger event is emitted in the dynamic extent of
+@racket[with-performance-stats] a mark can be retrieved by this
+function. The mark value consists of the two vectors described for
+@racket[with-performance-stats], which are applied to @racket[proc];
+this function returns as many values as does @racket[proc]. When
+@racket[proc] is @racket[values], this returns the two vectors. When
+@racket[proc] is @racket[performance-vectors->hasheq], the same
+information is represented as nested hash-tables.
+
+@ex/no-show[
+(require vestige/logging
+         vestige/receiving)
+(with-performance-stats
+  (cms->performance-stats (current-continuation-marks)))
+(with-performance-stats
+  (cms->performance-stats (current-continuation-marks)
+                          performance-vectors->hasheq))]}
+
 @subsubsection{Serializing}
 
 @defproc[(serializable-hasheq [h hash-eq?]) (and/c jsexpr? hash-eq? immutable?)]{
@@ -557,21 +603,6 @@ A hash-table satisfying @racket[jsexpr?] is obviously necessary to use
 serialize/marshal using most other formats.}
 
 @section{Examples}
-
-@(define-syntax-rule (ex eval pre-content ...)
-   (examples #:eval eval
-             #:no-prompt
-             #:label #f
-             #:preserve-source-locations
-             pre-content ...))
-
-@(define-syntax-rule (ex/show pre-content ...)
-   (let ((e (make-base-eval)))
-     (examples #:eval e #:hidden (require (submod vestige/receiving private start)))
-     (ex e pre-content ...)))
-
-@(define-syntax-rule (ex/no-show pre-content ...)
-   (ex (make-base-eval) pre-content ...))
 
 @subsection{Example: Tracing}
 
