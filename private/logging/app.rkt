@@ -5,18 +5,17 @@
          syntax/parse/define
          "srcloc.rkt")
 
-(provide caller-key
-         tracing-#%app
-         caller-srcloc)
+(provide tracing-#%app
+         cms->caller-srcloc)
 
-(define caller-key (make-continuation-mark-key 'caller))
+(define key (make-continuation-mark-key 'caller))
 
 (define-syntax-parser tracing-#%app
   [(_ x:expr more ...)
    (quasisyntax/loc this-syntax
-     (with-continuation-mark caller-key '#(#,@(->srcloc-as-list this-syntax))
+     (with-continuation-mark key '#(#,@(->srcloc-as-list this-syntax))
        (#%app x more ...)))])
 
-(define (caller-srcloc cms)
-  (define v (continuation-mark-set-first cms caller-key))
+(define (cms->caller-srcloc cms)
+  (define v (continuation-mark-set-first cms key))
   (and v (->srcloc-as-list v)))

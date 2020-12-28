@@ -16,7 +16,7 @@
          topic
          level
          tracing-key
-         tracing-data
+         cms->tracing-data
          make-tracing-data)
 
 ;;; continuation mark
@@ -26,7 +26,7 @@
 (define-simple-macro (with-tracing-mark data e:expr)
   (with-continuation-mark tracing-key data e))
 
-(define (tracing-data cms)
+(define (cms->tracing-data cms)
    (continuation-mark-set-first cms tracing-key))
 
 ;;; logging

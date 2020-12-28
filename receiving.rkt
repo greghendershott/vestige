@@ -6,22 +6,34 @@
          "private/logging/context.rkt"
          "private/logging/depth.rkt"
          "private/logging/common.rkt"
-         "private/tracing/logger.rkt")
+         (rename-in "private/tracing/logger.rkt"
+                    [logger tracing-logger]
+                    [topic tracing-topic]
+                    [level tracing-level]))
 
-(provide vector->hasheq
-         serializable-hasheq)
+(provide log-receiver-vector->hasheq
+         serializable-hasheq
+         tracing-logger
+         tracing-topic
+         tracing-level
+         ;; Low level instead of using vector->hasheq
+         cms->logging-depth
+         cms->caller-srcloc
+         cms->context-srcloc
+         cms->common-data
+         cms->tracing-data)
 
-(define (vector->hasheq v)
+(define (log-receiver-vector->hasheq v)
   (match v
     [(vector level message (? continuation-mark-set? cms) topic)
      (hasheq 'message message
              'topic   topic
              'level   level
-             'depth   (logging-depth cms)
-             'caller  (caller-srcloc cms)
-             'context (context-srcloc cms)
-             'common  (logging-common-data cms)
-             'tracing (tracing-data cms))]
+             'depth   (cms->logging-depth cms)
+             'caller  (cms->caller-srcloc cms)
+             'context (cms->context-srcloc cms)
+             'common  (cms->common-data cms)
+             'tracing (cms->tracing-data cms))]
     [(vector level message _unknown-data topic)
      (hasheq 'message message
              'topic   topic
@@ -63,8 +75,9 @@
 (module+ private
   (module+ start
     (void
-     (start-log-receiver-thread (compose pretty-print vector->hasheq)
+     (start-log-receiver-thread (compose pretty-print
+                                         log-receiver-vector->hasheq)
                                 (current-logger)
-                                level topic
+                                tracing-level tracing-topic
                                 'info 'example
                                 'fatal #f))))

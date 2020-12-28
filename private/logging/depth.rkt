@@ -3,9 +3,8 @@
 (require syntax/parse/define)
 
 (provide depth-key
-         logging-depth
+         cms->logging-depth
          marks->logging-depth
-         call-with-more-logging-depth
          with-more-logging-depth)
 
 ;; Key used for a continuation mark to indicate the depth. Non-tail
@@ -16,7 +15,7 @@
 ;; dynamic extent.
 (define depth-key (make-continuation-mark-key 'depth))
 
-(define (logging-depth cms)
+(define (cms->logging-depth cms)
   (define marks (continuation-mark-set->list cms depth-key))
   (marks->logging-depth marks))
 
@@ -24,10 +23,8 @@
   (or (findf number? marks)
       0))
 
-(define-simple-macro (with-more-logging-depth body:expr ...+)
-  (call-with-more-logging-depth (λ () body ...)))
+(define-simple-macro (with-more-logging-depth e:expr)
+  (let* ([old-depth (cms->logging-depth (current-continuation-marks))]
+         [new-depth (add1 old-depth)])
+    (with-continuation-mark depth-key new-depth e)))
 
-(define (call-with-more-logging-depth thk)
-  (define old-depth (logging-depth (current-continuation-marks)))
-  (define new-depth (add1 old-depth))
-  (with-continuation-mark depth-key new-depth (thk)))

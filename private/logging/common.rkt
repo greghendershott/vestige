@@ -2,23 +2,18 @@
 
 (require syntax/parse/define)
 
-(provide common-key
-         logging-common-data
-         call-with-more-logging-info
+(provide cms->common-data
          with-more-logging-info)
 
 ;; Information like timing and thread that is relevant for simple
 ;; message logging as well as tracing.
 
-(define common-key (make-continuation-mark-key 'common))
+(define key (make-continuation-mark-key 'common))
 
-(define (logging-common-data cms)
-  (continuation-mark-set-first cms common-key))
+(define (cms->common-data cms)
+  (continuation-mark-set-first cms key))
 
-(define-simple-macro (with-more-logging-info body:expr ...+)
-  (call-with-more-logging-info (λ () body ...)))
-
-(define (call-with-more-logging-info thk)
-  (define data (hasheq 'msec   (current-inexact-milliseconds)
-                       'thread (current-thread)))
-  (with-continuation-mark common-key data (thk)))
+(define-simple-macro (with-more-logging-info e:expr)
+  (let ([data (hasheq 'msec   (current-inexact-milliseconds)
+                      'thread (current-thread))])
+    (with-continuation-mark key data e)))
