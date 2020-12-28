@@ -49,7 +49,7 @@
     (do-log-args e ...)))
 
 (define (do-log-args id -tail? args kws kw-vals depth)
-  (define-values (show vals tail?)
+  (define-values (show in-situ tail?)
     (match (expression-identifier->string id)
       ;; Traced expressions: Show the expression string. Disregard
       ;; caller loc and tail call flag.
@@ -57,18 +57,19 @@
        (values v v #f)]
       ;; Traced function calls:
       [_
-       (define vals (string-join (append (map ~v args)
-                                         (append-map list
-                                                     (map ~a kws)
-                                                     (map ~v kw-vals)))))
+       (define in-situ (string-join
+                        (append (map ~v args)
+                                (append-map list
+                                            (map ~a kws)
+                                            (map ~v kw-vals)))))
        (define show (~a "("
                         (syntax-e id)
-                        (if (equal? vals "") "" " ")
-                        vals
+                        (if (equal? in-situ "") "" " ")
+                        in-situ
                         ")"))
-       (values show vals -tail?)]))
+       (values show in-situ -tail?)]))
   (with-tracing-mark
-    (make-tracing-data #t tail? id show vals)
+    (make-tracing-data #t tail? id show in-situ)
     (with-more-logging-info
       (log! (~a (make-string depth #\>) " " show)))))
 
@@ -77,22 +78,22 @@
     (do-log-results e ...)))
 
 (define (do-log-results id results depth)
-  (define vals
+  (define show
     (~a (match results
           [(list)   "#<void>"]
           [(list v) (~v v)]
           [vs       (~s (cons 'values vs))])))
   (with-tracing-mark
-    (make-tracing-data #f #f id vals vals)
+    (make-tracing-data #f #f id show show)
     (with-more-logging-info
-     (log! (~a (make-string depth #\<) " " vals)))))
+     (log! (~a (make-string depth #\<) " " show)))))
 
-(define (make-tracing-data call? tail? id show vals)
-  `([call       ,call?]
-    [tail       ,tail?]
-    [name       ,(~a (syntax-e id))]
-    [show       ,show]
-    [values     ,vals]
-    [identifier ,(->srcloc-as-list id)]
-    [formals    ,(get-formals-stx-prop id)]
-    [header     ,(get-header-stx-prop id)]))
+(define (make-tracing-data call? tail? id show in-situ)
+  (hasheq 'call          call?
+          'tail          tail?
+          'name          (~a (syntax-e id))
+          'show          show
+          'show-in-situ  in-situ
+          'identifier    (->srcloc-as-list id)
+          'formals       (get-formals-stx-prop id)
+          'header        (get-header-stx-prop id)))

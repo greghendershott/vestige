@@ -8,19 +8,20 @@
 ;; submodules run; if this were at the top file module level, it would
 ;; run later.
 (module receiver racket/base
-  (require vestige/private/receiving))
+  (require (submod vestige/receiving private start)))
 (require 'receiver)
 
 ;; This module is an example of using the explicit trace-x forms.
 (module explicit-example racket/base
   (require vestige/tracing/explicit
            vestige/logging)
-  (with-more-logging-info (log-fatal "outside"))
+  (define-logger example)
+  (with-more-logging-info (log-example-info "outside"))
   (trace-define (baz x) x)
   (trace-define (foo x)
-    (with-more-logging-info (log-fatal "inside"))
+    (with-more-logging-info (log-example-info "inside"))
     (with-more-logging-depth
-      (with-more-logging-info (log-fatal "inside, nested")))
+      (with-more-logging-info (log-example-info "inside, nested")))
     (baz x)
     (trace-let loop ([x 4])
       (if (zero? x) (baz x) (loop (sub1 x)))))
@@ -67,7 +68,7 @@
   (uncurried 1)
   (define alice (lambda (x) x))
   (alice 34))
-;;(require 'implicit-example)
+(require 'implicit-example)
 
 (module thread-example racket/base
   (require vestige/tracing/implicit)
@@ -79,7 +80,7 @@
   (for (#:when (and (thread-running? t1)
                     (thread-running? t2)))
     (sleep 1)))
-;;(require 'thread-example)
+(require 'thread-example)
 
 (module hash-update-example racket/base
   (require vestige/tracing/implicit
@@ -93,11 +94,11 @@
   (add 'key 0)
   (add 'key 1)
   ht)
-;;(require 'hash-update-example)
+(require 'hash-update-example)
 
 (module m racket/base
-  (require vestige/tracing/explicit)
-  (require vestige/private/receiving)
+  (require vestige/tracing/explicit
+           (submod vestige/receiving private start))
   ((trace-lambda #:name foo (x) x) 1))
 
 (module class-example racket/base
@@ -126,7 +127,7 @@
 
   (define charlie (new fish% [size 500]))
   (send daisy eat charlie))
-;;(require 'class-example)
+(require 'class-example)
 
 ;; This example module here just to compare check-syntax tail
 ;; reporting for known good examples to our own.

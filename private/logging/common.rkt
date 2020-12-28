@@ -19,6 +19,6 @@
   (call-with-more-logging-info (λ () body ...)))
 
 (define (call-with-more-logging-info thk)
-  (define data `([msec   ,(current-inexact-milliseconds)]
-                 [thread ,(current-thread)]))
+  (define data (hasheq 'msec   (current-inexact-milliseconds)
+                       'thread (current-thread)))
   (with-continuation-mark common-key data (thk)))
