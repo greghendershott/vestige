@@ -29,6 +29,8 @@
   (trace-define (hello x) (bar x))
   (hello 42)
   (define alice (trace-lambda (x) x))
+  (with-more-logging-info
+    (log-example-info "Stats"))
   (alice 34))
 (require 'explicit-example)
 

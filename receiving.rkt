@@ -6,7 +6,6 @@
          "private/logging/context.rkt"
          "private/logging/depth.rkt"
          "private/logging/common.rkt"
-         "private/logging/performance.rkt"
          (rename-in "private/tracing/logger.rkt"
                     [logger tracing-logger]
                     [topic tracing-topic]
@@ -19,24 +18,23 @@
          tracing-level
          ;; Low level instead of using vector->hasheq
          cms->logging-depth
+         cms->logging-info
          cms->caller-srcloc
          cms->context-srcloc
-         cms->common-data
          cms->tracing-data
-         cms->performance-stats
          performance-vectors->hasheq)
 
 (define (log-receiver-vector->hasheq v)
   (match v
     [(vector level message (? continuation-mark-set? cms) topic)
-     (hasheq 'message message
-             'topic   topic
-             'level   level
-             'depth   (cms->logging-depth cms)
-             'caller  (cms->caller-srcloc cms)
-             'context (cms->context-srcloc cms)
-             'common  (cms->common-data cms)
-             'tracing (cms->tracing-data cms))]
+     (hasheq 'message     message
+             'topic       topic
+             'level       level
+             'depth       (cms->logging-depth cms)
+             'caller      (cms->caller-srcloc cms)
+             'context     (cms->context-srcloc cms)
+             'info        (cms->logging-info cms)
+             'tracing     (cms->tracing-data cms))]
     [(vector level message _unknown-data topic)
      (hasheq 'message message
              'topic   topic

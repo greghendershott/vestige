@@ -4,7 +4,6 @@
 (provide with-more-logging-depth)
 
 (require "private/logging/common.rkt")
-(provide with-more-logging-info)
+(provide with-more-logging-info
+         performance-vectors->hasheq)
 
-(require "private/logging/performance.rkt")
-(provide with-performance-stats)

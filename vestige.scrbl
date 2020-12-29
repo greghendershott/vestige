@@ -343,12 +343,7 @@ information like @racket[current-inexact-milliseconds] and
 information eagerly matters because logger events are received later
 and in a different thread; even if you were to use a custom log
 receiver, it would be too late to add the information. See also
-@racket[cms->common-data].}
-
-@defform[(with-performance-stats result-expr)]{Eagerly captures two
-@racket[vector-set-performance-stats!] vectors, one global and the
-other for @racket[current-thread]. See also
-@racket[cms->performance-stats].}
+@racket[cms->logging-info].}
 
 
 @subsection{Application site}
@@ -430,7 +425,7 @@ Effectively this is a convenience function you could write yourself:
              'depth   (cms->logging-depth cms)
              'caller  (cms->caller-srcloc cms)
              'context (cms->context-srcloc cms)
-             'common  (cms->common-data cms)
+             'info    (cms->logging-info cms)
              'tracing (cms->tracing-data cms))]
     [(vector level message _unknown-data topic)
      (hasheq 'message message
@@ -453,7 +448,7 @@ reason for the choice of a @racket[hasheq] instead of a
 about and ignore others. For example use @racket[hash-ref] or use the
 @racketmodname[racket/match] @racket[hash-table] match pattern.
 
-Also:
+Also with respect to source locations:
 
 @nested[#:style 'inset
   @defthing[#:link-target? #f srcloc-as-list?
@@ -483,7 +478,7 @@ Returns the first non-false srcloc value, if any, from
 @racket[continuation-mark-set->context] whose source is
 @racket[complete-path?].}
 
-@defproc[(cms->common-data [cms continuation-mark-set?])
+@defproc[(cms->logging-info [cms continuation-mark-set?])
          (or/c #f (and/c hash? hash-eq? immutable?))]{
 
 When a logger event is emitted in the dynamic extent of
@@ -506,8 +501,18 @@ mappings:
   thread thunk a unique name related to a ``job'' or ``request'', as
   discussed in
   @hyperlink["https://www.greghendershott.com/2018/11/thread-names.html"]{this
-  blog post}.}]
-}
+  blog post}.}
+
+  @defmapping['performance-stats (vector/c vector? vector?)]{Vectors
+  from @racket[vector-set-performance-stats!] for global stats and
+  for @racket[current-thread].}]}
+
+@defproc[(performance-vectors->hasheq [global vector?][thread vector?])
+           (or/c #f (and/c hash? hash-eq? immutable?))]{
+
+Given global and per-thread vectors from
+@racket[vector-set-performance-data!] or @racket[cms->logging-info],
+return a hasheq representation.}
 
 @defproc[(cms->tracing-data [cms continuation-mark-set?])
          (or/c #f (and/c hash? hash-eq? immutable?))]{
@@ -560,38 +565,12 @@ following mappings:
   return.}]
 }
 
-@deftogether[(
-  @defproc[(cms->performance-stats [cms continuation-mark-set?]
-                                   [proc (-> vector? vector? any) values])
-           any]
-  @defproc[(performance-vectors->hasheq [global vector?][thread vector?])
-           (or/c #f (and/c hash? hash-eq? immutable?))]
-)]{
-
-When a logger event is emitted in the dynamic extent of
-@racket[with-performance-stats] a mark can be retrieved by this
-function. The mark value consists of the two vectors described for
-@racket[with-performance-stats], which are applied to @racket[proc];
-this function returns as many values as does @racket[proc]. When
-@racket[proc] is @racket[values], this returns the two vectors. When
-@racket[proc] is @racket[performance-vectors->hasheq], the same
-information is represented as nested hash-tables.
-
-@ex/no-show[
-(require vestige/logging
-         vestige/receiving)
-(with-performance-stats
-  (cms->performance-stats (current-continuation-marks)))
-(with-performance-stats
-  (cms->performance-stats (current-continuation-marks)
-                          performance-vectors->hasheq))]}
-
 @subsubsection{Serializing}
 
 @defproc[(serializable-hasheq [h hash-eq?]) (and/c jsexpr? hash-eq? immutable?)]{
 
 Given a hash-table --- such as one from
-@racket[log-receiver-vector->hasheq], @racket[cms->common-data], or
+@racket[log-receiver-vector->hasheq], @racket[cms->logging-info], or
 @racket[cms->tracing-data] --- returns one coerced to satisfy
 @racket[jsexpr?].
 
