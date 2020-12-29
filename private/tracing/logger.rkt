@@ -51,7 +51,7 @@
     (do-log-args e ...)))
 
 (define (do-log-args id -tail? args kws kw-vals depth)
-  (define-values (show in-situ tail?)
+  (define-values (message in-situ tail?)
     (match (expression-identifier->string id)
       ;; Traced expressions: Show the expression string. Disregard
       ;; caller loc and tail call flag.
@@ -59,42 +59,42 @@
        (values v v #f)]
       ;; Traced function calls:
       [_
-       (define in-situ (string-join
-                        (append (map ~v args)
-                                (append-map list
-                                            (map ~a kws)
-                                            (map ~v kw-vals)))))
-       (define show (~a "("
-                        (syntax-e id)
-                        (if (equal? in-situ "") "" " ")
-                        in-situ
-                        ")"))
-       (values show in-situ -tail?)]))
+       (define args-str (string-join
+                         (append (map ~v args)
+                                 (append-map list
+                                             (map ~a kws)
+                                             (map ~v kw-vals)))))
+       (define message (~a "("
+                           (syntax-e id)
+                           (if (equal? args-str "") "" " ")
+                           args-str
+                           ")"))
+       (values message args-str -tail?)]))
   (with-tracing-mark
-    (make-tracing-data #t tail? id show in-situ)
+    (make-tracing-data #t tail? id message in-situ)
     (with-more-logging-info
-      (log! (~a (make-string depth #\>) " " show)))))
+      (log! (~a (make-string depth #\>) " " message)))))
 
 (define-simple-macro (log-results e:expr ...)
   (when (log-level? logger level topic)
     (do-log-results e ...)))
 
 (define (do-log-results id results depth)
-  (define show
+  (define results-str
     (~a (match results
           [(list)   "#<void>"]
           [(list v) (~v v)]
           [vs       (~s (cons 'values vs))])))
   (with-tracing-mark
-    (make-tracing-data #f #f id show show)
+    (make-tracing-data #f #f id results-str results-str)
     (with-more-logging-info
-     (log! (~a (make-string depth #\<) " " show)))))
+     (log! (~a (make-string depth #\<) " " results-str)))))
 
-(define (make-tracing-data call? tail? id show in-situ)
+(define (make-tracing-data call? tail? id message in-situ)
   (hasheq 'call          call?
           'tail          tail?
           'name          (~a (syntax-e id))
-          'show          show
+          'message       message
           'show-in-situ  in-situ
           'identifier    (->srcloc-as-list id)
           'formals       (get-formals-stx-prop id)

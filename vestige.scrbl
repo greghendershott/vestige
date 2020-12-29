@@ -413,20 +413,26 @@ hash-table to a function such as @racket[jsexpr->string].}
 
 Extracts information from a @tech/ref{log receiver} event vector.
 
+When @racket[cms->tracing-data] produces a hasheq with a
+@racket['message] mapping, substitutes that value for the original
+message in the event vector.
+
 Effectively this is a convenience function you could write yourself:
 
 @racketblock[
 (define (log-receiver-vector->hasheq v)
   (match v
     [(vector level message (? continuation-mark-set? cms) topic)
-     (hasheq 'message message
+     (define tracing (cms->tracing-data cms))
+     (hasheq 'message (or (and tracing (hash-ref tracing 'message #f))
+                          message)
              'topic   topic
              'level   level
              'depth   (cms->logging-depth cms)
              'caller  (cms->caller-srcloc cms)
              'context (cms->context-srcloc cms)
              'info    (cms->logging-info cms)
-             'tracing (cms->tracing-data cms))]
+             'tracing tracing)]
     [(vector level message _unknown-data topic)
      (hasheq 'message message
              'topic   topic
@@ -540,12 +546,13 @@ following mappings:
   @defmapping['identifier srcloc-as-list?]{The location of the
   identifier naming the function defintion or of the expression.}
 
-  @defmapping['show string?]{The function name with the arguments in
-  parentheses, the results, or the expression. Similar to the logger
-  event vector's ``message'' slot string, but not prefixed by any
-  number @litchar{>} or @litchar{<} characters to show depth and call
-  vs. return. Intended for a tool that will present this another way,
-  such as indenting.}
+  @defmapping['message string?]{The function name with the arguments
+  in parentheses, the results, or the expression. Similar to the
+  logger event vector's ``message'' slot string, but not prefixed by
+  any number @litchar{>} or @litchar{<} characters to show depth and
+  call vs. return. Intended for a tool that will present this another
+  way, such as using indentation for depth and other labels for call
+  vs. return.}
 
   @defmapping['show-in-situ string?]{The arguments (only) to a call,
   or the results. Similar to the @racket[show] mapping, but what to

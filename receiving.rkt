@@ -27,14 +27,16 @@
 (define (log-receiver-vector->hasheq v)
   (match v
     [(vector level message (? continuation-mark-set? cms) topic)
-     (hasheq 'message     message
-             'topic       topic
-             'level       level
-             'depth       (cms->logging-depth cms)
-             'caller      (cms->caller-srcloc cms)
-             'context     (cms->context-srcloc cms)
-             'info        (cms->logging-info cms)
-             'tracing     (cms->tracing-data cms))]
+     (define tracing (cms->tracing-data cms))
+     (hasheq 'message (or (and tracing (hash-ref tracing 'message #f))
+                          message)
+             'topic   topic
+             'level   level
+             'depth   (cms->logging-depth cms)
+             'caller  (cms->caller-srcloc cms)
+             'context (cms->context-srcloc cms)
+             'info    (cms->logging-info cms)
+             'tracing tracing)]
     [(vector level message _unknown-data topic)
      (hasheq 'message message
              'topic   topic
