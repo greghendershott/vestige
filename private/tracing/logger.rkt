@@ -21,7 +21,9 @@
 
 ;;; continuation mark
 
-(define tracing-key (make-continuation-mark-key 'tracing))
+;; Intentionally not using make-continuation-mark-key because
+;; vestige/reciving could be dynamic-required.
+(define tracing-key 'vestige-tracing-continuation-mark-key)
 
 (define-simple-macro (with-tracing-mark data e:expr)
   (with-continuation-mark tracing-key data e))

@@ -8,7 +8,9 @@
 (provide tracing-#%app
          cms->caller-srcloc)
 
-(define key (make-continuation-mark-key 'caller))
+;; Intentionally not using make-continuation-mark-key because
+;; vestige/reciving could be dynamic-required.
+(define key 'vestige-app-srcloc-continuation-mark-key)
 
 (define-syntax-parser tracing-#%app
   [(_ x:expr more ...)

@@ -9,7 +9,9 @@
 ;; Information like timing and thread that is relevant for simple
 ;; message logging as well as tracing.
 
-(define key (make-continuation-mark-key 'common))
+;; Intentionally not using make-continuation-mark-key because
+;; vestige/reciving could be dynamic-required.
+(define key 'vestige-logging-info-continuation-mark-key)
 
 (define (cms->logging-info cms)
   (continuation-mark-set-first cms key))

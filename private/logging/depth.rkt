@@ -13,7 +13,10 @@
 ;;
 ;; In addition, `with-more-logging-depth` increases the depth for a
 ;; dynamic extent.
-(define depth-key (make-continuation-mark-key 'depth))
+;;
+;; Intentionally not using make-continuation-mark-key because
+;; vestige/reciving could be dynamic-required.
+(define depth-key 'vestige-depth-continuation-mark-key)
 
 (define (cms->logging-depth cms)
   (define marks (continuation-mark-set->list cms depth-key))
