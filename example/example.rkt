@@ -3,10 +3,10 @@
 ;; These examples are mostly intended for my own use in developing
 ;; vestige as well as exercising its use by Racket Mode.
 
-;; This installs a log receiver to pretty-print the message and data.
-;; Putting that in a submodule ensures it runs before the other
-;; submodules run; if this were at the top file module level, it would
-;; run later.
+;; This submodule installs a log receiver to pretty-print the logger
+;; events. Putting this in a submodule ensures it runs before the
+;; other submodules run! (If this were at the top, file module level,
+;; it would run later.)
 (module receiver racket/base
   (require (submod vestige/receiving private start)))
 (require 'receiver)
@@ -14,6 +14,7 @@
 ;; This module is an example of using the explicit trace-x forms.
 (module explicit-example racket/base
   (require vestige/tracing/explicit
+           vestige/app
            vestige/logging)
   (define-logger example)
   (with-more-logging-info (log-example-info "outside"))
