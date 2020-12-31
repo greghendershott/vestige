@@ -71,7 +71,7 @@
    ;; has srcloc from the user's program, using syntax/loc when
    ;; necessary.)
    #:with proc (syntax/loc this-syntax (lambda formals body ...))
-   #`(chaperone-procedure proc
+   #`(chaperone-procedure (procedure-rename proc 'name)
                           (make-chaperone-wrapper-proc #'name+props)
                           chaperone-prop-key
                           chaperone-prop-val)])
