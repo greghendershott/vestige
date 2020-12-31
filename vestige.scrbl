@@ -495,7 +495,7 @@ mappings:
 @nested[#:style 'inset
 
   @defmapping['msec real?]{The @racket[(current-inexact-milliseconds)]
-  value at the time of ogging..}
+  value at the time of logging.}
 
   @defmapping['thread thread?]{The @racket[(current-thread)] value at
   the time of logging.
@@ -510,15 +510,19 @@ mappings:
   blog post}.}
 
   @defmapping['performance-stats (vector/c vector? vector?)]{Vectors
-  from @racket[vector-set-performance-stats!] for global stats and
-  for @racket[current-thread].}]}
+  from @racket[vector-set-performance-stats!] for global stats and for
+  @racket[current-thread]. For efficiency these are the ``raw''
+  vectors. If you want a hash-table representation you can give these
+  to @racket[performance-vectors->hasheq]. If you process the vectors
+  yourself, be aware that the length of the vectors may increase in
+  later versions of Racket.}]}
 
 @defproc[(performance-vectors->hasheq [global vector?][thread vector?])
            (or/c #f (and/c hash? hash-eq? immutable?))]{
 
 Given global and per-thread vectors from
-@racket[vector-set-performance-data!] or @racket[cms->logging-info],
-return a hasheq representation.}
+@racket[vector-set-performance-stats!] or from
+@racket[cms->logging-info], return a hasheq representation.}
 
 @defproc[(cms->tracing-data [cms continuation-mark-set?])
          (or/c #f (and/c hash? hash-eq? immutable?))]{
@@ -549,13 +553,13 @@ following mappings:
   @defmapping['message string?]{The function name with the arguments
   in parentheses, the results, or the expression. Similar to the
   logger event vector's ``message'' slot string, but not prefixed by
-  any number @litchar{>} or @litchar{<} characters to show depth and
-  call vs. return. Intended for a tool that will present this another
-  way, such as using indentation for depth and other labels for call
-  vs. return.}
+  any @litchar{>} or @litchar{<} characters to show depth and call vs.
+  return. Intended for a tool that will present this another way, such
+  as using indentation for depth and other labels for call vs.
+  return.}
 
   @defmapping['show-in-situ string?]{The arguments (only) to a call,
-  or the results. Similar to the @racket[show] mapping, but what to
+  or the results. Similar to the @racket[message] mapping, but what to
   show @italic{in situ} --- in place of source text at the
   @racket[formals] span or after the @racket[header] span. Intended
   for a tool that correlates tracing with source.}
@@ -608,14 +612,20 @@ like:
   (require vestige/tracing/explicit
            vestige/logging)
   (define-logger example)
+
+  (log-example-info "I am outside, my depth is 0")
+
   (trace-define (f x)
     (log-example-info "I am at the same depth as `f`: 2.")
     (with-more-logging-depth
       (log-example-info "I am one deeper: 3."))
     (+ 1 x))
+
   (trace-define (g x)
     (+ 1 (f x)))
+
   (g 42)
+
   (trace-expression (* 2 3))
 ]
 
@@ -674,12 +684,14 @@ receiver} thread much like this:
 
 @subsection{Using @racket[with-intercepted-logging] and JSON}
 
-Another way to make a log receceiver is to use the values from
-@racketmodname[vestige/receiving] and the
+Another way to make a log receceiver is to use the
 @racketmodname[racket/logging] convenience function
-@racket[with-intercepted-logging]. This example shows that. Also it
-shows using @racket[serializable-hasheq] and @racket[jsexpr->string]
-to convert the hash-table to its JSON string representation:
+@racket[with-intercepted-logging], and supply it values from
+@racketmodname[vestige/receiving]. The following example shows that.
+
+Furthermore it shows using @racket[serializable-hasheq] and
+@racket[jsexpr->string] to convert the hash-table to its JSON string
+representation.
 
 @ex/no-show[
   (require json
