@@ -17,9 +17,11 @@
            vestige/app
            vestige/logging)
   (define-logger example)
+  (log-example-info "not in any with-more-logging- form")
   (with-more-logging-info (log-example-info "outside"))
   (trace-define (baz x) x)
   (trace-define (foo x)
+    (log-example-info "inside foo but not in any with-more-logging- form")
     (with-more-logging-info (log-example-info "inside"))
     (with-more-logging-depth
       (with-more-logging-info (log-example-info "inside, nested")))

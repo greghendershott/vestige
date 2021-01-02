@@ -329,8 +329,8 @@ the depth by one for the dynamic extent of the form.
 
 When you use a @racket[vestige/tracing] module like
 @racketmodname[vestige/tracing/explicit], the depth at any point is
-the depth of the traced call(s). Other, ordinary logging is at that
-depth automatically --- without using this form. For example a
+the depth of the traced call(s). Other, ordinary logging is ``at that
+depth'' automatically --- without using this form. For example a
 @racket[log-info] in the body of a traced function is automatically at
 the same depth as the tracing showing the function call. (You only
 need use this form if you want to increase the depth even more.)
@@ -342,8 +342,12 @@ information like @racket[current-inexact-milliseconds] and
 @racket[current-thread] in a continuation mark. Capturing such
 information eagerly matters because logger events are received later
 and in a different thread; even if you were to use a custom log
-receiver, it would be too late to add the information. See also
-@racket[cms->logging-info].}
+receiver, it would be too late to add the information.
+
+Also records the srcloc for the form, enabling a tool to show the
+source of the logging.
+
+See also @racket[cms->logging-info].}
 
 
 @subsection{Application site}
@@ -493,6 +497,9 @@ function. The value is a @racket[hasheq] with at least the following
 mappings:
 
 @nested[#:style 'inset
+
+  @defmapping['srcloc srcloc-as-list?]{The source location of the
+  @racket[with-more-logging-info] form.}
 
   @defmapping['msec real?]{The @racket[(current-inexact-milliseconds)]
   value at the time of logging.}

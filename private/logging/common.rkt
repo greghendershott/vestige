@@ -2,8 +2,7 @@
 
 (require (for-syntax racket/base
                      "srcloc.rkt")
-         syntax/parse/define
-         (only-in "app.rkt" caller-srcloc-key))
+         syntax/parse/define)
 
 (provide cms->logging-info
          with-more-logging-info
@@ -21,12 +20,12 @@
 (define-syntax-parser with-more-logging-info
   [(_ e:expr)
    (quasisyntax/loc this-syntax
-     (let ([data (hasheq 'msec              (current-inexact-milliseconds)
+     (let ([data (hasheq 'srcloc            '(#,@(->srcloc-as-list #'e))
+                         'msec              (current-inexact-milliseconds)
                          'thread            (current-thread)
                          'performance-stats (vectors))])
        (with-continuation-mark key data
-         (with-continuation-mark caller-srcloc-key '(#,@(->srcloc-as-list #'e))
-           e))))])
+         e)))])
 
 (define (vectors)
   (define global (make-vector 12))

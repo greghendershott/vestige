@@ -5,8 +5,7 @@
          syntax/parse/define
          "srcloc.rkt")
 
-(provide (rename-out [key caller-srcloc-key])
-         tracing-#%app
+(provide tracing-#%app
          cms->caller-srcloc)
 
 ;; Intentionally not using make-continuation-mark-key.

@@ -2,8 +2,7 @@
 
 (require (for-syntax racket/base
                      "srcloc.rkt")
-         syntax/parse/define
-         (only-in "app.rkt" caller-srcloc-key))
+         syntax/parse/define)
 
 (provide depth-key ;for use also by core.rkt
          cms->logging-depth
@@ -34,5 +33,4 @@
      (let* ([old-depth (cms->logging-depth (current-continuation-marks))]
             [new-depth (add1 old-depth)])
        (with-continuation-mark depth-key new-depth
-         (with-continuation-mark caller-srcloc-key '(#,@(->srcloc-as-list #'e))
-           e))))])
+         e)))])
