@@ -10,7 +10,9 @@
          "../logging/srcloc.rkt"
          "../logging/common.rkt")
 
-(provide log-args
+(provide log?
+         log!
+         log-args
          log-results
          logger
          topic
@@ -35,6 +37,9 @@
 (define level 'debug)
 (define topic 'vestige/tracing)
 
+(define (log?)
+  (log-level? logger level topic))
+
 (define (log! message)
   ;; assumes we already did log-level? test
   (log-message logger
@@ -45,7 +50,7 @@
                #t))
 
 (define-simple-macro (log-args e:expr ...)
-  (when (log-level? logger level topic)
+  (when (log?)
     (do-log-args e ...)))
 
 (define (do-log-args id -tail? args kws kw-vals depth)
@@ -73,7 +78,7 @@
       (log! (~a (make-string depth #\>) " " message)))))
 
 (define-simple-macro (log-results e:expr ...)
-  (when (log-level? logger level topic)
+  (when (log?)
     (do-log-results e ...)))
 
 (define (do-log-results id results depth)
