@@ -1,6 +1,9 @@
 #lang racket/base
 
-(require syntax/parse/define)
+(require (for-syntax racket/base
+                     "srcloc.rkt")
+         syntax/parse/define
+         (only-in "app.rkt" app-key))
 
 (provide depth-key
          cms->logging-depth
@@ -26,8 +29,12 @@
   (or (findf number? marks)
       0))
 
-(define-simple-macro (with-more-logging-depth e:expr)
-  (let* ([old-depth (cms->logging-depth (current-continuation-marks))]
-         [new-depth (add1 old-depth)])
-    (with-continuation-mark depth-key new-depth e)))
+(define-syntax-parser with-more-logging-depth
+  [(_ e:expr)
+   (quasisyntax/loc this-syntax
+     (let* ([old-depth (cms->logging-depth (current-continuation-marks))]
+            [new-depth (add1 old-depth)])
+       (with-continuation-mark depth-key new-depth
+         (with-continuation-mark app-key '#(#,@(->srcloc-as-list #'e))
+           e))))])
 

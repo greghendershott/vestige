@@ -1,6 +1,9 @@
 #lang racket/base
 
-(require syntax/parse/define)
+(require (for-syntax racket/base
+                     "srcloc.rkt")
+         syntax/parse/define
+         (only-in "app.rkt" app-key))
 
 (provide cms->logging-info
          with-more-logging-info
@@ -16,11 +19,15 @@
 (define (cms->logging-info cms)
   (continuation-mark-set-first cms key))
 
-(define-simple-macro (with-more-logging-info e:expr)
-  (let ([data (hasheq 'msec              (current-inexact-milliseconds)
-                      'thread            (current-thread)
-                      'performance-stats (vectors))])
-    (with-continuation-mark key data e)))
+(define-syntax-parser with-more-logging-info
+  [(_ e:expr)
+   (quasisyntax/loc this-syntax
+     (let ([data (hasheq 'msec              (current-inexact-milliseconds)
+                         'thread            (current-thread)
+                         'performance-stats (vectors))])
+       (with-continuation-mark key data
+         (with-continuation-mark app-key '#(#,@(->srcloc-as-list #'e))
+           e))))])
 
 (define (vectors)
   (define global (make-vector 12))
