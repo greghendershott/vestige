@@ -3,9 +3,9 @@
 (require (for-syntax racket/base
                      "srcloc.rkt")
          syntax/parse/define
-         (only-in "app.rkt" app-key))
+         (only-in "app.rkt" caller-srcloc-key))
 
-(provide depth-key
+(provide depth-key ;for use also by core.rkt
          cms->logging-depth
          marks->logging-depth
          with-more-logging-depth)
@@ -17,8 +17,7 @@
 ;; In addition, `with-more-logging-depth` increases the depth for a
 ;; dynamic extent.
 ;;
-;; Intentionally not using make-continuation-mark-key because
-;; vestige/reciving could be dynamic-required.
+;; Intentionally not using make-continuation-mark-key.
 (define depth-key 'vestige-depth-continuation-mark-key)
 
 (define (cms->logging-depth cms)
@@ -35,6 +34,5 @@
      (let* ([old-depth (cms->logging-depth (current-continuation-marks))]
             [new-depth (add1 old-depth)])
        (with-continuation-mark depth-key new-depth
-         (with-continuation-mark app-key '#(#,@(->srcloc-as-list #'e))
+         (with-continuation-mark caller-srcloc-key '(#,@(->srcloc-as-list #'e))
            e))))])
-

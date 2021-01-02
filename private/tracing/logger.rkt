@@ -15,21 +15,19 @@
          logger
          topic
          level
-         tracing-key
          cms->tracing-data
          make-tracing-data)
 
 ;;; continuation mark
 
-;; Intentionally not using make-continuation-mark-key because
-;; vestige/reciving could be dynamic-required.
-(define tracing-key 'vestige-tracing-continuation-mark-key)
+;; Intentionally not using make-continuation-mark-key.
+(define key 'vestige-tracing-continuation-mark-key)
 
 (define-simple-macro (with-tracing-mark data e:expr)
-  (with-continuation-mark tracing-key data e))
+  (with-continuation-mark key data e))
 
 (define (cms->tracing-data cms)
-   (continuation-mark-set-first cms tracing-key))
+   (continuation-mark-set-first cms key))
 
 ;;; logging
 
@@ -70,8 +68,7 @@
                            args-str
                            ")"))
        (values message args-str -tail?)]))
-  (with-tracing-mark
-    (make-tracing-data #t tail? id message in-situ)
+  (with-tracing-mark (make-tracing-data #t tail? id message in-situ)
     (with-more-logging-info
       (log! (~a (make-string depth #\>) " " message)))))
 
@@ -80,15 +77,14 @@
     (do-log-results e ...)))
 
 (define (do-log-results id results depth)
-  (define results-str
+  (define str
     (~a (match results
           [(list)   "#<void>"]
           [(list v) (~v v)]
           [vs       (~s (cons 'values vs))])))
-  (with-tracing-mark
-    (make-tracing-data #f #f id results-str results-str)
+  (with-tracing-mark (make-tracing-data #f #f id str str)
     (with-more-logging-info
-     (log! (~a (make-string depth #\<) " " results-str)))))
+     (log! (~a (make-string depth #\<) " " str)))))
 
 (define (make-tracing-data call? tail? id message in-situ)
   (hasheq 'call          call?

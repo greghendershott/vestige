@@ -5,18 +5,17 @@
          syntax/parse/define
          "srcloc.rkt")
 
-(provide (rename-out [key app-key])
+(provide (rename-out [key caller-srcloc-key])
          tracing-#%app
          cms->caller-srcloc)
 
-;; Intentionally not using make-continuation-mark-key because
-;; vestige/reciving could be dynamic-required.
+;; Intentionally not using make-continuation-mark-key.
 (define key 'vestige-app-srcloc-continuation-mark-key)
 
 (define-syntax-parser tracing-#%app
   [(_ x:expr more ...)
    (quasisyntax/loc this-syntax
-     (with-continuation-mark key '#(#,@(->srcloc-as-list this-syntax))
+     (with-continuation-mark key '(#,@(->srcloc-as-list this-syntax))
        (#%app x more ...)))])
 
 (define (cms->caller-srcloc cms)

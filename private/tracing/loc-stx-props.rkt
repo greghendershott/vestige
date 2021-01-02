@@ -60,11 +60,11 @@
     ;; parameters, by using location at the close paren.
     [(list)
      (->srcloc-as-list
-      (vector (syntax-source formals)
-              (syntax-line formals)
-              (+ (syntax-column formals) (sub1 (syntax-span formals)))
-              (+ (syntax-position formals) (sub1 (syntax-span formals)))
-              0))]
+      (list (syntax-source formals)
+            (syntax-line formals)
+            (+ (syntax-column formals) (sub1 (syntax-span formals)))
+            (+ (syntax-position formals) (sub1 (syntax-span formals)))
+            0))]
     ;; Should never get here if caller used the `formals` syntax class
     ;; from syntax/parse/lib/function-header, but just in case:
     [_ (raise-syntax-error 'trace-lambda
@@ -80,7 +80,7 @@
   (define pos  (syntax-position first))
   (define end (+ (syntax-position last) (syntax-span last)))
   (define span (- end pos))
-  (->srcloc-as-list (vector src line col pos span)))
+  (->srcloc-as-list (list src line col pos span)))
 
 (module+ test
   (require rackunit)

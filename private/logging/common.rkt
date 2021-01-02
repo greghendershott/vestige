@@ -3,7 +3,7 @@
 (require (for-syntax racket/base
                      "srcloc.rkt")
          syntax/parse/define
-         (only-in "app.rkt" app-key))
+         (only-in "app.rkt" caller-srcloc-key))
 
 (provide cms->logging-info
          with-more-logging-info
@@ -12,8 +12,7 @@
 ;; Information like timing and thread that is relevant for simple
 ;; message logging as well as tracing.
 
-;; Intentionally not using make-continuation-mark-key because
-;; vestige/reciving could be dynamic-required.
+;; Intentionally not using make-continuation-mark-key.
 (define key 'vestige-logging-info-continuation-mark-key)
 
 (define (cms->logging-info cms)
@@ -26,7 +25,7 @@
                          'thread            (current-thread)
                          'performance-stats (vectors))])
        (with-continuation-mark key data
-         (with-continuation-mark app-key '#(#,@(->srcloc-as-list #'e))
+         (with-continuation-mark caller-srcloc-key '(#,@(->srcloc-as-list #'e))
            e))))])
 
 (define (vectors)

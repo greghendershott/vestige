@@ -7,7 +7,7 @@
 
 (define (->srcloc-as-list v)
   (match v
-    [(or (vector (app clean-source src) line column position span)
+    [(or (list   (app clean-source src) line column position span)
          (srcloc (app clean-source src) line column position span))
      (list src line column position span)]
     [(? syntax? stx)
@@ -17,7 +17,7 @@
            (syntax-position stx)
            (syntax-span stx))]
     [_ (raise-argument-error '->srcloc-as-list
-                             "syntax? or srcloc? or srcloc as vector?"
+                             "syntax, srcloc, or srcloc as list"
                              v)]))
 
 (define (clean-source source)
