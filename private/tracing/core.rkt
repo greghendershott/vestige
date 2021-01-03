@@ -2,7 +2,7 @@
 
 (require racket/match
          "../logging/depth.rkt"
-         "logger.rkt")
+         "logging.rkt")
 
 (provide make-chaperone-wrapper-proc
          (rename-out [impersonator-prop:application-mark chaperone-prop-key])

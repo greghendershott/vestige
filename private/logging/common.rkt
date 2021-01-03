@@ -18,12 +18,17 @@
   (continuation-mark-set-first cms key))
 
 (define-syntax-parser with-more-logging-info
-  [(_ e:expr)
+  [(_
+    (~optional (~seq #:srcloc? srcloc?)
+               #:defaults ([srcloc? #'#t]))
+    e:expr)
    (quasisyntax/loc this-syntax
-     (let ([data (hasheq 'srcloc            '(#,@(->srcloc-as-list #'e))
-                         'msec              (current-inexact-milliseconds)
-                         'thread            (current-thread)
-                         'performance-stats (vectors))])
+     (let ([data
+            (hasheq 'srcloc            (and srcloc?
+                                            '(#,@(->srcloc-as-list #'e)))
+                    'msec              (current-inexact-milliseconds)
+                    'thread            (current-thread)
+                    'performance-stats (vectors))])
        (with-continuation-mark key data
          e)))])
 

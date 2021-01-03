@@ -8,5 +8,4 @@
                      [trace-lambda lambda]
                      [trace-case-lambda case-lambda]
                      [trace-λ λ]
-                     [trace-let let])
-         trace-expression)
+                     [trace-let let]))

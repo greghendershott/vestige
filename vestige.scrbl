@@ -68,7 +68,7 @@ packages, as well as @racketmodname[racket/trace], this package is
 named after a synonym, ``vestige''.}
 
 The @racket[vestige/tracing] modules capture information about
-function calls and results, as well as expression evaluations.
+function calls and results.
 
 The information is supplied using structured logging.
 
@@ -81,8 +81,9 @@ Intended benefits include minimizing cross-cutting concerns.
 
 The @racketmodname[vestige/tracing/explicit] module mimics some of the
 forms of @racketmodname[racket/trace] such as @racket[trace-define]
-and adds forms like tracing for @racket[racket/class] method
-definitions and @racket[trace-expression] form.
+and adds forms such as @racket[trace-case-lambda]. Furthermore, the
+@racketmodname[vestige/tracing/class/explicit] module adds tracing
+flavors of @racketmodname[racket/class] method definitions.
 
 Although the basic technique used to capture calls, results, and
 levels is similar to that used in @racketmodname[racket/trace],
@@ -90,8 +91,8 @@ additional information is captured and its disposition is different:
 
 @itemlist[
 
- @item{Instrumentation is enabled upon definition; there is no
- mutating @|trace-id| or @|untrace-id|.}
+ @item{Instrumentation happens upon definition; there is no mutating
+ @|trace-id| or @|untrace-id|.}
 
  @item{Information is captured in @tech/ref{continuation marks} and
  emitted as @tech/ref{logger} events.}
@@ -185,9 +186,6 @@ In other words, @racket[(require vestige/tracing/implicit)] is a
 convenient way to trace everything in a module without otherwise
 needing to litter its source with individual changes.
 
-At the same time, this module also provides @racket[trace-expression]
-so that you may use that on specific expressions of special interest.
-
 @subsection{Instrumenting all @racketmodname[racket/class] methods defined in a module}
 
 @defmodule[vestige/tracing/class/implicit]
@@ -199,13 +197,13 @@ provides the same forms as does
 ``trace-'' prefix. For example @litchar{define/private} is actually
 @racket[trace-define/private].
 
-@subsection{Instrumenting specific functions or expressions}
+@subsection{Instrumenting specific functions}
 
 @defmodule[vestige/tracing/explicit]
 
 The @racketmodname[vestige/tracing/explicit] module provides
 distinctly named forms. Use this when you want to instrument only some
-functions or expressions in a module.
+functions in a module.
 
 @defform[(trace-lambda [#:name name] kw-formals body ...+)]{
 
@@ -218,10 +216,12 @@ well as a bearer of one or more special syntax properties. One such
 property is the source location for the formals (the exact meaning of
 which differs among the various forms that expand to
 @racket[trace-lambda]) that appears as @racket['formals] in the
-@racket[log-receiver-vector->hasheq] hash-table. When @racket[name]
-is not supplied, the identifier is inferred using
-@racket[syntax-local-infer-name] and the formals are the source
-location for @racket[kw-formals].}
+@racket[log-receiver-vector->hasheq] hash-table. Another property
+describes the @racket['header].
+
+When @racket[name] is not supplied, the identifier is inferred using
+@racket[syntax-local-infer-name], and the formals and header are the
+source location for @racket[kw-formals].}
 
 @defform[(trace-case-lambda [formals body ...+] ...+)]{
 
@@ -251,13 +251,6 @@ property covers @racket[id] and @racket[init-expr].
 
 The second form defers to plain @racket[let].}
 
-@defform[(trace-expression expression)]{
-
-Equivalent to @racket[((trace-lambda #:name name () expression))],
-where @racket[name] is synthesized from @racket[(syntax->datum
-#'expression)] and gets a syntax property with the printed value of
-@racket[expression], as well as a syntax property for the formals,
-which is the entire @racket[expression].}
 
 @subsection{Instrumenting specific @racketmodname[racket/class] method definitions}
 
@@ -349,6 +342,14 @@ source of the logging.
 
 See also @racket[cms->logging-info].}
 
+@defform[(log-expression expr)]{Emits a logger event whose message
+shows the quoted form of @racket[expr] and its result. The result of
+@racket[expr] is the result of the @racket[log-expression] form.
+
+Effectively a composition of @racket[with-more-logging-info] and a
+@racket[log-message] using @racket[vestige-topic] and
+@racket[vestige-level].}
+
 
 @subsection{Application site}
 
@@ -382,21 +383,19 @@ See also @racket[cms->caller-srcloc].}
 
 @defmodule[vestige/receiving]
 
-@subsection{Tracing logger values}
+@subsection{Logger topic and level}
 
 @deftogether[(
- @defthing[tracing-logger logger?]
- @defthing[tracing-topic symbol?]
- @defthing[tracing-level log-level/c]
+ @defthing[vestige-topic symbol?]
+ @defthing[vestige-level log-level/c]
 )]{
 
-The tracing logger, and the topic and level used for tracing logger
-events.
+The topic and level used for logging events.
 
 You may need these values when making a log receiver and want to be
 sure to receive logger events emitted by the @racket[vestige/tracing]
-modules such as @racketmodname[vestige/tracing/explicit]. See
-@secref["receiver-example"].}
+modules such as @racketmodname[vestige/tracing/explicit], as well as
+by @racket[log-expression]. See @secref["receiver-example"].}
 
 
 @subsection{Event vectors}
@@ -498,8 +497,13 @@ mappings:
 
 @nested[#:style 'inset
 
-  @defmapping['srcloc srcloc-as-list?]{The source location of the
-  @racket[with-more-logging-info] form.}
+  @defmapping['srcloc (or/c #f srcloc-as-list?)]{The source location
+  of the @racket[with-more-logging-info] form.
+
+  Note: Internal uses of @racket[with-more-logging-info] by
+  @racket[vestige/tracing] forms set this value false, because the
+  internal location is not relevant --- instead
+  @racket[cms->tracing-info] supplies the interesting srclocs.}
 
   @defmapping['msec real?]{The @racket[(current-inexact-milliseconds)]
   value at the time of logging.}
@@ -542,46 +546,57 @@ following mappings:
 @nested[#:style 'inset
 
   @defmapping['call boolean?]{True when the event represents the
-  evaluation of a function call or expression.
+  evaluation of a function call.
 
   False when the event represents a function returning results.}
 
-  @defmapping['tail boolean?]{True when @racket[call] is true and this
-  is a tail call.
+  @defmapping['tail boolean?]{True when @racket['call] is true and
+  this is a tail call.
 
-  Note that results are not logged for tail calls.}
+  Note that function return results are not logged for tail calls.}
 
-  @defmapping['name string?]{The name of the function or the datum of
-  the expression.}
+  @defmapping['name string?]{The name of the function.}
 
   @defmapping['identifier srcloc-as-list?]{The location of the
-  identifier naming the function defintion or of the expression.}
+  identifier naming the function defintion.}
 
-  @defmapping['message string?]{The function name with the arguments
-  in parentheses, the results, or the expression. Similar to the
-  logger event vector's ``message'' slot string, but not prefixed by
-  any @litchar{>} or @litchar{<} characters to show depth and call vs.
-  return. Intended for a tool that will present this another way, such
-  as using indentation for depth and other labels for call vs.
-  return.}
+  @defmapping['message string?]{When @racket['call] is true, the
+  function name with the arguments in parentheses.
 
-  @defmapping['show-in-situ string?]{The arguments (only) to a call,
-  or the results. Similar to the @racket[message] mapping, but what to
-  show @italic{in situ} --- in place of source text at the
-  @racket[formals] span or after the @racket[header] span. Intended
-  for a tool that correlates tracing with source.}
+  When @racket['call] is false, the value(s) resulting from calling
+  the function.
+
+  Similar to the logger event vector's ``message'' slot string, but
+  @italic{not} prefixed by any @litchar{>} or @litchar{<} characters
+  to show depth and call vs. return. Intended for a tool that will
+  present this another way, such as using indentation for depth and
+  other labels for call vs. return.}
+
+  @deftogether[(
+    @defmapping['args-from (or/c #f exact-nonnegative-integer?)]
+    @defmapping['args-upto (or/c #f exact-nonnegative-integer?)]
+  )]{
+
+  When @racket['call] is true, @racket[(substring message args-from
+  args-upto)] is the string with the actual arguments to show
+  @italic{in situ} at the @racket['formals] srcloc. Intended for a
+  tool that correlates tracing with source. Note that these two values
+  may be equal (indicating an empty string) when a function has no
+  formal parameters (a ``thunk'').}
 
   @defmapping['formals srcloc-as-list?]{The location of the formal
   parameters. What this means varies among the forms. The idea is that
-  this is a good span to replace with the @racket[show-in-situ] value
-  for a function call.}
+  this is a good span to @italic{replace} with the actual arguments
+  when @racket['call] is true. Note that this can be an empty span,
+  when a function has no formal parameters (a ``thunk''); in that case
+  it is probably best simply to highlight the text at the
+  @racket['header] location to indicate the call.}
 
   @defmapping['header srcloc-as-list?]{The location of the header.
   What this means varies among the forms. It is often a super-span of
-  the @racket['formals] mapping. The idea is that this is a good span
-  after which to show the @racket[show-in-situ] value for a function
-  return.}]
-}
+  the @racket['formals] mapping. The idea is that the @racket['header]
+  is a good span @italic{after which} to show the @racket['message]
+  results when @racket['call] is false.}] }
 
 @subsubsection{Serializing}
 
@@ -633,7 +648,7 @@ like:
 
   (g 42)
 
-  (trace-expression (* 2 3))
+  (log-expression (* 2 3))
 ]
 
 The @racket[trace-define] forms cause log events for function calls
@@ -680,7 +695,7 @@ receiver} thread much like this:
 @racketblock[
   (require vestige/receiving)
   (define receiver (make-log-receiver (current-logger)
-                                      tracing-level tracing-topic
+                                      vestige-level vestige-topic
                                       'info 'example
                                       'fatal #f))
   (define (get-event)
@@ -716,7 +731,7 @@ representation.
              serializable-hasheq
              log-receiver-vector->hasheq))
   (with-intercepted-logging interceptor example
-    #:logger tracing-logger tracing-level tracing-topic)
+    vestige-level vestige-topic)
 ]
 
 Instead of @racket[displayln], this code could give the JSON string to

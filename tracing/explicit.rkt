@@ -5,5 +5,4 @@
          trace-lambda
          trace-λ
          trace-case-lambda
-         trace-let
-         trace-expression)
+         trace-let)

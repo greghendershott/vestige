@@ -2,20 +2,19 @@
 
 (require racket/match
          racket/pretty
+         (rename-in "private/logging/log.rkt"
+                    [topic vestige-topic]
+                    [level vestige-level])
          "private/logging/app.rkt"
          "private/logging/context.rkt"
          "private/logging/depth.rkt"
          "private/logging/common.rkt"
-         (rename-in "private/tracing/logger.rkt"
-                    [logger tracing-logger]
-                    [topic tracing-topic]
-                    [level tracing-level]))
+         "private/tracing/logging.rkt")
 
 (provide log-receiver-vector->hasheq
          serializable-hasheq
-         tracing-logger
-         tracing-topic
-         tracing-level
+         vestige-topic
+         vestige-level
          ;; Low level instead of using vector->hasheq
          cms->logging-depth
          cms->logging-info
@@ -81,6 +80,6 @@
      (start-log-receiver-thread (compose pretty-print
                                          log-receiver-vector->hasheq)
                                 (current-logger)
-                                tracing-level tracing-topic
+                                vestige-level vestige-topic
                                 'info 'example
                                 'fatal #f))))

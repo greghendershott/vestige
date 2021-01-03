@@ -4,8 +4,10 @@
          racket/format
          racket/match
          syntax/parse/define
-         (only-in "../tracing/logger.rkt" log? log!)
+         (only-in "log.rkt" log? log!)
          "common.rkt")
+
+(provide log-expression)
 
 (define-syntax-parser log-expression
   [(_ e:expr)
@@ -15,7 +17,7 @@
                    (λ vs
                      (when (log?)
                        (log! (fmt 'e vs)))
-                     (values vs))))
+                     (apply values vs))))
    (syntax/loc this-syntax
      (with-more-logging-info
        new-e))])

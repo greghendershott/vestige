@@ -7,7 +7,6 @@
                      (only-in syntax/define normalize-definition)
                      (only-in syntax/name syntax-local-infer-name)
                      syntax/parse/lib/function-header
-                     "expression-id.rkt"
                      "loc-stx-props.rkt")
          syntax/parse/define
          "../logging/app.rkt"
@@ -18,26 +17,19 @@
 ;; Instead we define things as traced in the first place. The core
 ;; form here is trace-lambda.
 ;;
-;; Furthermore we supply a `trace-expression`.
-;;
-;; We use two syntax properties attached to the function name
-;; identifier, for a couple special purposes:
-;;
-;; 1. For trace-expression, this captures the original expresssion
-;; datum string, for later use when logging. See expresion->id.
-;;
-;; 2. For all forms, "formals" and "header" syntax properties say
-;; what portion of the source should be used if a "step tracer" tool
-;; wants to show an application at the definition site. This varies
-;; among forms, and can be the srloc for multiple consecutive pieces
-;; of original syntax, as with a named let. See add-loc-props.
+;; We use syntax properties attached to the function name identifier:
+;; "formals" and "header" syntax properties say what portion of the
+;; source should be used if a "step tracer" tool wants to show actual
+;; arguments at the definition site, an application at the caller
+;; site, or results at both sites. These source spans vary among
+;; forms, and can be the srloc for multiple consecutive pieces of
+;; original syntax, as with a named let. See add-loc-props.
 
 (provide trace-lambda
          (rename-out [trace-lambda trace-λ])
          trace-case-lambda
          trace-define
-         trace-let
-         trace-expression)
+         trace-let)
 
 (begin-for-syntax
   (define (infer-name-or-error stx who)
@@ -153,8 +145,3 @@
   [(_ e:expr ...+)
    (syntax/loc this-syntax (let e ...))])
 
-(define-syntax-parser trace-expression
-  [(_ e:expr)
-   #:with name (add-loc-props/expression (expression->identifier #'e) #'e)
-   (syntax/loc this-syntax
-     ((trace-lambda #:name name () e)))])

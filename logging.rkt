@@ -7,3 +7,5 @@
 (provide with-more-logging-info
          performance-vectors->hasheq)
 
+(require "private/logging/expression.rkt")
+(provide log-expression)

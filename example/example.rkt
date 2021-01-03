@@ -17,11 +17,11 @@
            vestige/app
            vestige/logging)
   (define-logger example)
-  (log-example-info "not in any with-more-logging- form")
-  (with-more-logging-info (log-example-info "outside"))
+  (log-example-info "not in any with-more-logging-info form")
+  (with-more-logging-info (log-example-info "outside any traced function"))
   (trace-define (baz x) x)
   (trace-define (foo x)
-    (log-example-info "inside foo but not in any with-more-logging- form")
+    (log-example-info "inside foo but not in any with-more-logging-info form")
     (with-more-logging-info (log-example-info "inside"))
     (with-more-logging-depth
       (with-more-logging-info (log-example-info "inside, nested")))
@@ -41,6 +41,7 @@
 ;; racket/base ones.
 (module implicit-example racket/base
   (require vestige/tracing/implicit
+           vestige/logging
            racket/match)
   (define (baz x) x)
   (define (foo x)
@@ -50,11 +51,11 @@
   (define (bar x) (+ (foo x) 1))
   (define (hello x) (+ (bar x)))
   (hello 42)
-  (trace-expression (void))
-  (trace-expression (+ 1 2))
+  (log-expression (void))
+  (log-expression (+ 1 2))
   (let ([x 1] [y 2])
-   (trace-expression (+ x (trace-expression (+ y 3)))))
-  (trace-expression (values 1 2))
+   (log-expression (+ x (log-expression (+ y 3)))))
+  (log-expression (values 1 2))
   (define cl (case-lambda
                [() 0]
                [(x) x]
