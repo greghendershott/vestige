@@ -1,17 +1,16 @@
 #lang racket/base
 
-(require (for-syntax racket/base
-                     "srcloc.rkt")
+(require (for-syntax racket/base)
          syntax/parse/define)
 
-(provide depth-key ;for use also by core.rkt
+(provide depth-key ;for use also by tracing/core.rkt
          cms->logging-depth
          marks->logging-depth
          with-more-logging-depth)
 
 ;; Key used for a continuation mark to indicate the depth. Non-tail
 ;; calls of traced functions adjust the depth automatically; see
-;; core.rkt.
+;; tracing/core.rkt.
 ;;
 ;; In addition, `with-more-logging-depth` increases the depth for a
 ;; dynamic extent.
