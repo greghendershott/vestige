@@ -140,7 +140,7 @@
      (letrec ([name #,(syntax/loc this-syntax
                         (trace-lambda #:name name (param ...) body ...))])
        #,(syntax/loc #'name ;good srcloc for initial call
-           (tracing-#%app name init ...))))]
+           (vestige-#%app name init ...))))]
   ;; Normal let
   [(_ e:expr ...+)
    (syntax/loc this-syntax (let e ...))])

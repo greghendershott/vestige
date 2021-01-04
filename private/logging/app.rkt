@@ -5,13 +5,13 @@
          syntax/parse/define
          "srcloc.rkt")
 
-(provide tracing-#%app
+(provide vestige-#%app
          cms->caller-srcloc)
 
 ;; Intentionally not using make-continuation-mark-key.
 (define key 'vestige-app-srcloc-continuation-mark-key)
 
-(define-syntax-parser tracing-#%app
+(define-syntax-parser vestige-#%app
   [(_ x:expr more ...)
    (quasisyntax/loc this-syntax
      (with-continuation-mark key '(#,@(->srcloc-as-list this-syntax))

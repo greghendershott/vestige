@@ -5,13 +5,12 @@
 
 (provide cms->context-srcloc)
 
-;; This will never be as precise as tracing-#%app. Instead, it will be
+;; This will never be as precise as vestige-#%app. Instead, it will be
 ;; a span somewhere within which is the call site. Although this is
 ;; not precise enough for e.g. a tool that wants to show the call "in
 ;; situ" similar to a step debugger, it is useful information. For
 ;; example it's more than adequate for devops logging purposes, and
-;; anyway in such cases our tracing-#%app might be avoided for
-;; peformance.
+;; anyway in such cases vestige-#%app might be avoided for peformance.
 (define (cms->context-srcloc cms)
   (for/or ([id+srcloc (in-list (continuation-mark-set->context cms))])
     (match id+srcloc
