@@ -443,6 +443,85 @@ Effectively this is a convenience function you could write yourself:
              'depth   0)]))
 ]}
 
+@defproc[(add-interactive-sites [ht (and/c hash? hash-eq? immutable?)])
+         (and/c hash? hash-eq? immutable?)]{
+
+Given a hash-table produced by @racket[log-receiver-vector->hasheq],
+returns one with new @racket['primary-site] and
+@racket['secondary-site] mappings. These can be used by an interactive
+tool to show the primary and secondary sites, if any, associated with
+the logging event.
+
+Although the original hash-table has all the necessary information,
+the logic to translate that into a simple ``presentation action'' ---
+what to show, where, and how --- is not necessarily immediate obvious.
+This function is provided as a convenient, reasonable way to handle
+this.
+
+@nested[#:style 'inset
+
+  @deftogether[(
+    @defmapping['primary-site (or/c #f presentation)]
+    @defmapping['secondary-site (or/c #f presentation)]
+  )]{
+
+  When the logging event originated from a @racket[vestige/tracing]
+  form: The primary site is a span within the formals or header of the
+  traced, called function. The secondary site is the location of the
+  caller (if available, else @racket[#f]).
+
+  When the logging event originated in the dynamic extent of
+  @racket[with-more-logging-info]: The primary site is the location of
+  the @racket[with-more-logging-info] form. The secondary site is
+  @racket[#f].
+
+  Otherwise, both values will be @racket[#f].}
+
+  @defthing[#:link-target? #f presentation
+           (list* (or/c 'highlight 'replace 'after)
+                  path-string?
+                  exact-nonnegative-integer?
+                  exact-nonnegative-integer?
+                  (or/c (list)
+                        (list string?)))]{
+
+  For either site, the @racket[presentation] value is one of:
+
+  @itemlist[
+
+   @item{@racket[(list 'highlight _path _from _upto)]:
+
+   Highlight the span [@racket[_from] @racket[_upto]) in
+   @racket[_path].
+
+   Used e.g. to show application with actual arguments at caller
+   sites, or called functions with no formal parameters (thunks).}
+
+   @item{@racket[(list 'replace _path _from _upto _str)]:
+
+   Replace the span [@racket[_from] @racket[_upto]) in @racket[_path]
+   with @racket[_str] and highlight that.
+
+   Used e.g. for called functions, to replace their formal parameters
+   with actual arguments.}
+
+   @item{@racket[(list 'after _path _from _upto _str)]:
+
+   Insert @racket[_str] at @racket[_upto] in @racket[_path] --- that
+   is, insert after the span [@racket[_from] @racket[_upto]), leaving
+   that intact. Highlight the inserted @racket[_str]. If you wish,
+   also highlight the span [@racket[_from] @racket[_upto]).
+
+   Used e.g. for function result values.}]
+
+  In summary, when the user moves to a logging message in one buffer,
+  you can make visible in one or more other buffers the primary and
+  secondary sites, if any, using the suggested presentation action for
+  each site.}]
+
+}
+
+
 @subsubsection{Low level}
 
 Various forms from @racketmodname[vestige/logging] and

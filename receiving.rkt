@@ -12,6 +12,7 @@
          "private/tracing/logging.rkt")
 
 (provide log-receiver-vector->hasheq
+         add-interactive-sites
          serializable-hasheq
          vestige-topic
          vestige-level
@@ -41,6 +42,92 @@
              'topic   topic
              'level   level
              'depth   0)]))
+
+;; Sorts through the various cases of collected data from tracing or
+;; with-more-loging-info, to add primary-site and secondary-site
+;; mappings. i.e. When the user wants to see sites associated with a
+;; logging event, here is a recommendation what to show, where, and
+;; how.
+;;
+;; Although I wasn't originally sure if this belongs down here in this
+;; library, I was persuaded by many iterations of fussy/tricky code up
+;; in Racket Mode's Emacs front-end.
+;;
+;; On the one hand, I don't want to predetermine the UI for all tools.
+;; On the other hand, this kind of presentation logic is not
+;; necessarily immediately obvious from the raw collected data. If a
+;; tool wants a different presentation, at least this source code is
+;; available as an example, and they still have access to all the data
+;; from log-receiver-vector->hasheq.
+(define (add-interactive-sites ht)
+  (define (add #:primary primary #:secondary secondary)
+    (hash-set (hash-set ht 'primary-site primary)
+              'secondary-site secondary))
+  (define (add-tracing ht)
+    (match (hash-ref ht 'tracing #f)
+    [(hash-table ['call         call?]
+                 ['message      message]
+                 ['args-from    args-from]
+                 ['args-upto    args-upto]
+                 ['formals      formals]
+                 ['header       header])
+     ;; Tracing call or results. The primary site is the called site
+     ;; i.e where the function is defined. The secondary site is the
+     ;; caller site (if any such information is available).
+     (if call?
+         (add #:primary
+              (match formals
+                [(list file _line _col pos span)
+                 (cond
+                   ;; Empty formals span (thunk); no actual args
+                   ;; and anyway no place to show them: Instead
+                   ;; highlight the header keeping its existing
+                   ;; text.
+                   [(or (zero? span)
+                        (equal? args-from args-upto))
+                    (match-let ([(list file _line _col pos span) header])
+                      (list 'highlight file pos (+ pos span)))]
+                   ;; Non-empty formals span: replace the text at
+                   ;; formals location with the actual arguments.
+                   ;; These are a substring of the message.
+                   [else
+                    (list 'replace file pos (+ pos span)
+                          (substring message args-from args-upto))])])
+              #:secondary
+              (match (hash-ref ht 'caller #f)
+                [(list file _line _col pos span)
+                 (list 'replace file pos (+ pos span) message)]
+                [_ #f]))
+         (let ([msg (string-append "⇒ " message)])
+           (add #:primary
+                (match header
+                  [(list file _line _col pos span)
+                   (list 'after file pos (+ pos span) msg)]
+                  [_ #f])
+                #:secondary
+                (match (hash-ref ht 'caller #f)
+                  [(list file _line _col pos span)
+                   (list 'after file pos (+ pos span) msg)]
+                  [_ #f]))))]
+    [_ #f]))
+  (define (add-info ht)
+     ;; Non-tracing logging that has srcloc arising from
+     ;; with-more-logging-info, has that as its primary site. There is
+     ;; no secondary site.
+     (match (hash-ref ht 'info #f)
+       [(hash-table ['srcloc (list file _line _col pos span)])
+        (add #:primary   (list 'highlight file pos (+ pos span))
+             #:secondary #f)]
+       [_ #f]))
+  (or (add-tracing ht) ;most specific, try first
+      (add-info ht)
+      ;; Otherwise, nothing actionable wrt showing sites. A tool could
+      ;; should show context srcloc, but: 1. That's a stand-alone
+      ;; property that either is present or not -- there is no
+      ;; complicating presentation logic like the above. 2. Context
+      ;; can be a very large span -- benefitting from a presentation
+      ;; other than boldly highlghting the entire thing.
+      ht))
 
 ;; Change as necessary to satisfy jsexpr?
 (define (serializable-hasheq h)
