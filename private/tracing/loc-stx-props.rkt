@@ -4,7 +4,6 @@
          "../logging/srcloc.rkt")
 
 (provide add-loc-props
-         add-loc-props/expression
          get-formals-stx-prop
          get-header-stx-prop)
 
@@ -13,11 +12,6 @@
 (define (add-loc-props stx #:formals-stx formals-stx #:header-stxs header-stxs)
   (add-formals-stx-prop (add-header-stx-prop stx (header-srcloc header-stxs))
                         (formals-srcloc formals-stx)))
-
-(define (add-loc-props/expression stx expr-stx)
-  (define loc (->srcloc-as-list expr-stx))
-  (add-formals-stx-prop (add-header-stx-prop stx loc)
-                        loc))
 
 ;;; The header prop
 
