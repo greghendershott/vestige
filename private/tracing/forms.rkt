@@ -117,7 +117,7 @@
               (quasisyntax/loc fmls
                 (trace-lambda #:name #,(name-id fmls) #,fmls
                               #,(produce-lambda more)))])))]
-  [_
+  [(_ _id:id _expr:expr)
    (define-values (name def) (normalize-definition this-syntax #'lambda #t #t))
    (quasisyntax/loc this-syntax (define #,name #,def))])
 
