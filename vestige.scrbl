@@ -557,7 +557,9 @@ the tracing forms.}
 @defproc[(cms->caller-srcloc [cms continuation-mark-set?])
          (or/c #f srcloc-as-list?)]{
 
-Returns the mark value set by @racket[#%app].}
+Returns the mark value set by @racket[#%app].
+
+See also the high level @racket[add-interactive-sites].}
 
 @defproc[(cms->context-srcloc [cms continuation-mark-set?])
          (or/c #f srcloc-as-list?)]{
@@ -582,7 +584,9 @@ mappings:
   Note: Internal uses of @racket[with-more-logging-info] by
   @racket[vestige/tracing] forms set this value false, because the
   internal location is not relevant --- instead
-  @racket[cms->tracing-info] supplies the interesting srclocs.}
+  @racket[cms->tracing-info] supplies the interesting srclocs.
+
+  See also the high level @racket[add-interactive-sites].}
 
   @defmapping['msec real?]{The @racket[(current-inexact-milliseconds)]
   value at the time of logging.}
@@ -675,7 +679,9 @@ following mappings:
   What this means varies among the forms. It is often a super-span of
   the @racket['formals] mapping. The idea is that the @racket['header]
   is a good span @italic{after which} to show the @racket['message]
-  results when @racket['call] is false.}] }
+  results when @racket['call] is false.}]
+
+See also the high level @racket[add-interactive-sites].}
 
 @subsubsection{Serializing}
 
