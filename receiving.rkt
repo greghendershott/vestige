@@ -61,8 +61,9 @@
 ;; from log-receiver-vector->hasheq.
 (define (add-presentation-sites ht)
   (define (add #:primary primary #:secondary secondary)
-    (hash-set (hash-set ht 'primary-site primary)
-              'secondary-site secondary))
+    (hash-set* ht
+               'primary-site primary
+               'secondary-site secondary))
   (define (add-tracing ht)
     (match (hash-ref ht 'tracing #f)
     [(hash-table ['call         call?]
