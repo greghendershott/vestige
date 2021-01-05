@@ -12,7 +12,7 @@
          "private/tracing/logging.rkt")
 
 (provide log-receiver-vector->hasheq
-         add-interactive-sites
+         add-presentation-sites
          serializable-hasheq
          vestige-topic
          vestige-level
@@ -59,7 +59,7 @@
 ;; tool wants a different presentation, at least this source code is
 ;; available as an example, and they still have access to all the data
 ;; from log-receiver-vector->hasheq.
-(define (add-interactive-sites ht)
+(define (add-presentation-sites ht)
   (define (add #:primary primary #:secondary secondary)
     (hash-set (hash-set ht 'primary-site primary)
               'secondary-site secondary))

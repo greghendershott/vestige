@@ -443,7 +443,7 @@ Effectively this is a convenience function you could write yourself:
              'depth   0)]))
 ]}
 
-@defproc[(add-interactive-sites [ht (and/c hash? hash-eq? immutable?)])
+@defproc[(add-presentation-sites [ht (and/c hash? hash-eq? immutable?)])
          (and/c hash? hash-eq? immutable?)]{
 
 Given a hash-table produced by @racket[log-receiver-vector->hasheq],
@@ -559,7 +559,7 @@ the tracing forms.}
 
 Returns the mark value set by @racket[#%app].
 
-See also the high level @racket[add-interactive-sites].}
+See also the high level @racket[add-presentation-sites].}
 
 @defproc[(cms->context-srcloc [cms continuation-mark-set?])
          (or/c #f srcloc-as-list?)]{
@@ -586,7 +586,7 @@ mappings:
   internal location is not relevant --- instead
   @racket[cms->tracing-info] supplies the interesting srclocs.
 
-  See also the high level @racket[add-interactive-sites].}
+  See also the high level @racket[add-presentation-sites].}
 
   @defmapping['msec real?]{The @racket[(current-inexact-milliseconds)]
   value at the time of logging.}
@@ -681,7 +681,7 @@ following mappings:
   is a good span @italic{after which} to show the @racket['message]
   results when @racket['call] is false.}]
 
-See also the high level @racket[add-interactive-sites].}
+See also the high level @racket[add-presentation-sites].}
 
 @subsubsection{Serializing}
 
