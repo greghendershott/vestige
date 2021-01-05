@@ -3,7 +3,7 @@
 (require (for-syntax racket/base
                      racket/syntax
                      syntax/parse/lib/function-header
-                     "loc-stx-props.rkt")
+                     "id-stx-prop.rkt")
          racket/class
          syntax/parse/define
          "core.rkt")
@@ -21,9 +21,9 @@
      (begin
        (define-syntax-parser define-name
          [(_ (~and header (method-name:id . formals:formals)) body:expr ...+)
-          #:with method-name+props (add-loc-props #'method-name
-                                                  #:formals-stx #'formals
-                                                  #:header-stxs (list #'header))
+          #:with method-name+props (add-prop #'method-name
+                                             #:formals-stx #'formals
+                                             #:header-stxs (list #'header))
           (syntax/loc this-syntax
             (begin
               (class-keyword method-name+props)

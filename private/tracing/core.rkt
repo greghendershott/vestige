@@ -2,6 +2,7 @@
 
 (require racket/match
          "../logging/depth.rkt"
+         "id-stx-prop.rkt"
          "logging.rkt")
 
 (provide make-chaperone-wrapper-proc
@@ -42,7 +43,7 @@
   ;; detected within wrapper-proc)."
   ;;
   ;; <https://docs.racket-lang.org/reference/chaperones.html?q=impersonate-procedure#%28def._%28%28lib._racket%2Fprivate%2Fbase..rkt%29._impersonate-procedure%29%29>
-  (define guid-base (gensym (syntax-e id-stx)))
+  (match-define (vector formals-srcloc header-srcloc positional-syms) (get-prop id-stx))
   (define (on-args kws kw-vals args)
     (let* ([cms (current-continuation-marks)]
            ;; OPTIMIZE: Use cms->iterator to grab marks until we reach a number
@@ -59,7 +60,8 @@
          ;; original call will) and because we want this to remain a
          ;; tail call. Also, do NOT call the raw proc with a new,
          ;; incremented depth-key mark.
-         (log-args id-stx #t args kws kw-vals depth)
+         (log-args id-stx #t args kws kw-vals depth
+                   formals-srcloc header-srcloc positional-syms)
          (if (null? kws)
              (apply values         args)
              (apply values kw-vals args))]
@@ -71,10 +73,12 @@
          ;; the raw proc with an incremented depth-key mark.
          (define (on-results . results)
            (with-continuation-mark depth-key new-depth
-             (log-results id-stx results new-depth))
+             (log-results id-stx results new-depth
+                          formals-srcloc header-srcloc positional-syms))
            (apply values results))
          (with-continuation-mark depth-key new-depth
-           (log-args id-stx #f args kws kw-vals new-depth))
+           (log-args id-stx #f args kws kw-vals new-depth
+                     formals-srcloc header-srcloc positional-syms))
          (if (null? kws)
              (apply values on-results 'mark depth-key new-depth         args)
              (apply values on-results 'mark depth-key new-depth kw-vals args))])))

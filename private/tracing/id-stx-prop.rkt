@@ -1,24 +1,28 @@
 #lang racket/base
 
-(require racket/match
+(require (only-in racket/function negate)
+         racket/match
+         syntax/parse
+         syntax/parse/lib/function-header
          "../logging/srcloc.rkt")
 
-(provide add-loc-props
-         get-formals-stx-prop
-         get-header-stx-prop)
+(provide add-prop
+         get-prop)
 
-;;; Adding the multiple special props
+(define prop-key 'vestige-syntax-property)
 
-(define (add-loc-props stx #:formals-stx formals-stx #:header-stxs header-stxs)
-  (add-formals-stx-prop (add-header-stx-prop stx (header-srcloc header-stxs))
-                        (formals-srcloc formals-stx)))
+(define (add-prop stx
+                  #:formals-stx formals-stx
+                  #:header-stxs header-stxs)
+  (syntax-property stx
+                   prop-key
+                   (vector (formals-srcloc formals-stx)
+                           (header-srcloc header-stxs)
+                           (formals->positionals formals-stx))
+                   #t)) ;preserved
 
-;;; The header prop
-
-(define header-property-key  'vestige-header)
-
-(define (add-header-stx-prop stx loc)
-  (syntax-property stx header-property-key loc #t)) ;preserved
+(define (get-prop stx)
+  (syntax-property stx prop-key))
 
 (define (header-srcloc stxs)
   (match stxs
@@ -28,19 +32,6 @@
     [_ (raise-syntax-error 'trace-lambda
                            "Expected a list of one or more syntaxes"
                            stxs)]))
-
-(define (get-header-stx-prop stx)
-  (syntax-property stx header-property-key))
-
-;;; The formals prop
-
-(define formals-property-key 'vestige-formals)
-
-(define (add-formals-stx-prop stx loc)
-  (syntax-property stx formals-property-key loc #t)) ;preserved
-
-(define (get-formals-stx-prop stx)
-  (syntax-property stx formals-property-key))
 
 (define (formals-srcloc formals)
   (match (syntax->list formals)
@@ -62,8 +53,17 @@
     ;; Should never get here if caller used the `formals` syntax class
     ;; from syntax/parse/lib/function-header, but just in case:
     [_ (raise-syntax-error 'trace-lambda
-                           "Expected a list or an identifier"
+                           "Expected a list of syntax or an identifier"
                            formals)]))
+
+(define (formals->positionals formals)
+  (syntax-parse formals
+    [id:id (syntax-e #'id)]
+    [(fml:formal ...)
+     (filter (negate keyword?)
+             (syntax->datum #'((~? fml.kw fml.name) ...)))]))
+
+;;; Utility
 
 ;; Given two stxs, produce srcloc for the span from the first to the
 ;; second.

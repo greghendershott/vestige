@@ -11,6 +11,15 @@
   (require (submod vestige/receiving private start)))
 (require 'receiver)
 
+(module keyword-example racket/base
+  (require vestige/tracing/explicit
+           vestige/app
+           vestige/logging)
+
+  (trace-define (hello x #:kw kw #:a-kw a-kw [y 'y])
+    (list x kw a-kw y))
+  (hello 'x #:kw 'kw #:a-kw 'a-kw))
+
 ;; This module is an example of using the explicit trace-x forms.
 (module explicit-example racket/base
   (require vestige/tracing/explicit
@@ -29,8 +38,11 @@
     (trace-let loop ([x 4])
       (if (zero? x) (baz x) (loop (sub1 x)))))
   (trace-define (bar x) (+ (foo x) 1))
-  (trace-define (hello x) (bar x))
-  (hello 42)
+  (trace-define (hello x #:kw kw [y 2] [z (baz 12)])
+    (+ (bar x) y kw z))
+  (hello 42 #:kw 12)
+  (trace-define (rest-arg . args) args)
+  (rest-arg 0 1 2)
   (define alice (trace-lambda (x) x))
   (with-more-logging-info
     (log-example-info "Stats"))

@@ -7,7 +7,7 @@
                      (only-in syntax/define normalize-definition)
                      (only-in syntax/name syntax-local-infer-name)
                      syntax/parse/lib/function-header
-                     "loc-stx-props.rkt")
+                     "id-stx-prop.rkt")
          syntax/parse/define
          "../logging/app.rkt"
          "core.rkt")
@@ -23,7 +23,7 @@
 ;; arguments at the definition site, an application at the caller
 ;; site, or results at both sites. These source spans vary among
 ;; forms, and can be the srloc for multiple consecutive pieces of
-;; original syntax, as with a named let. See add-loc-props.
+;; original syntax, as with a named let. See add-prop.
 
 (provide trace-lambda
          (rename-out [trace-lambda trace-λ])
@@ -46,17 +46,16 @@
                  #:defaults ([name (inferred-name-id this-syntax 'trace-lambda)]))
       formals:formals body:expr ...+)
    ;; `make-chaperone-wrapper-proc` takes a piece of identifier
-   ;; syntax: it uses the symbol value in messages and it looks for
-   ;; some syntax properties. When #:name is supplied we use that.
-   ;; Otherwise we fall back to making our own identifier from the
-   ;; inferred name symbol. In any case, if the name identifier
-   ;; lacks a formals syntax property, we give it one corresponding
-   ;; to the formals syntax, as well as a header property.
-   #:with name+props (if (get-formals-stx-prop #'name)
+   ;; syntax: it uses the symbol value in messages and it calls
+   ;; get-prop to get additional information. When #:name is supplied
+   ;; we use that. Otherwise we fall back to making our own identifier
+   ;; from the inferred name symbol. In any case, if get-prop returns
+   ;; #f for the name identifier, we do an add-prop here.
+   #:with name+props (if (get-prop #'name)
                          #'name ;keep existing properties
-                         (add-loc-props #'name
-                                        #:formals-stx #'formals
-                                        #:header-stxs (list #'formals)))
+                         (add-prop #'name
+                                   #:formals-stx #'formals
+                                   #:header-stxs (list #'formals)))
    ;; Give the lambda srcloc from this-syntax so that e.g.
    ;; check-syntax tail reporting points to user's source not here.
    ;; (Macros below that expand to us, should also ensure that our use
@@ -74,9 +73,9 @@
     #:attributes (num-args trace-lambda)
     (pattern (formals:formals body:expr ...+)
              #:with num-args (length (syntax->list #'formals))
-             #:with name (add-loc-props (format-id #'formals "~a" name-sym)
-                                        #:formals-stx #'formals
-                                        #:header-stxs (list #'formals))
+             #:with name (add-prop (format-id #'formals "~a" name-sym)
+                                   #:formals-stx #'formals
+                                   #:header-stxs (list #'formals))
              #:with trace-lambda (syntax/loc stx
                                    (trace-lambda #:name name formals body ...))))
   (syntax-parse stx
@@ -133,9 +132,9 @@
 (define-syntax-parser trace-let
   ;; "Named let"
   [(_ id:id (~and bindings ([param:id init:expr] ...)) body ...+)
-   #:with name (add-loc-props #'id
-                              #:formals-stx #'bindings
-                              #:header-stxs (list #'id #'bindings))
+   #:with name (add-prop #'id
+                         #:formals-stx #'bindings
+                         #:header-stxs (list #'id #'bindings))
    (quasisyntax/loc this-syntax
      (letrec ([name #,(syntax/loc this-syntax
                         (trace-lambda #:name name (param ...) body ...))])
