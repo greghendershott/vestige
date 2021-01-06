@@ -207,28 +207,13 @@ functions in a module.
 
 @defform[(trace-lambda [#:name name] kw-formals body ...+)]{
 
-Like @|trace-lambda-id|.
-
-This is the core form into which others expand.
-
-The optional @racket[name] identifier is used for its symbol value as
-well as a bearer of one or more special syntax properties. One such
-property is the source location for the formals (the exact meaning of
-which differs among the various forms that expand to
-@racket[trace-lambda]) that appears as @racket['formals] in the
-@racket[log-receiver-vector->hasheq] hash-table. Another property
-describes the @racket['header].
-
-When @racket[name] is not supplied, the identifier is inferred using
-@racket[syntax-local-infer-name], and the formals and header are the
-source location for @racket[kw-formals].}
+Like @|trace-lambda-id|.}
 
 @defform[(trace-case-lambda [formals body ...+] ...+)]{
 
 Like @racket[case-lambda] but expands to multiple
-@racket[trace-lambda] forms, one for each clause, where each
-@racket[#:name] comes from @racket[syntax-local-infer-name] and the
-formals property is the location of each @racket[formals].}
+@racket[trace-lambda] forms, one for each clause, and each having
+distinct source locations.}
 
 @defform*[((trace-define id expr)
            (trace-define (head args) body ...+))]{
@@ -236,18 +221,17 @@ formals property is the location of each @racket[formals].}
 Like @|trace-define-id|.
 
 The ``curried'' syntax --- e.g. @racket[(define ((f x) y) ____)] ---
-expands to nested @racket[trace-lambda]s, each of which has a
-@racket[#:name] identifier whose formals property covers that piece of
-the syntax, and whose symbol is formed from the base name with the
-formals appended; see @secref["curried-define-example"].}
+expands to nested @racket[trace-lambda]s, each of which has distinct
+source locations and whose @racket[#:name] identifier symbol is formed
+from the base name with the formals appended; see
+@secref["curried-define-example"].}
 
 @defform*[((trace-let proc-id ([id init-expr] ...) body ...+)
            (trace-let         ([id init-expr] ...) body ...+))]{
 
 The first form is like @|trace-let-id| --- it instruments the function
-implicitly defined and called by a ``named let''. It expands to a
-@racket[trace-lambda] with a @racket[#:name] identifier whose formals
-property covers @racket[id] and @racket[init-expr].
+implicitly defined and called by a ``named let''. The initial and
+subsequnt calls have distinct source locations.
 
 The second form defers to plain @racket[let].}
 
@@ -447,10 +431,9 @@ Effectively this is a convenience function you could write yourself:
          (and/c hash? hash-eq? immutable?)]{
 
 Given a hash-table produced by @racket[log-receiver-vector->hasheq],
-returns one with new @racket['primary-site] and
-@racket['secondary-site] mappings. These can be used by an interactive
-tool to show the primary and secondary sites, if any, associated with
-the logging event.
+returns one with @racket['primary-site] and @racket['secondary-site]
+mappings. These can be used by an interactive tool to show the primary
+and secondary sites, if any, associated with the logging event.
 
 Although the original hash-table has all the necessary information,
 the logic to translate that into a simple ``presentation action'' ---

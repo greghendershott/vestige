@@ -3,7 +3,7 @@
 (require (for-syntax racket/base
                      racket/syntax
                      syntax/parse/lib/function-header
-                     "id-stx-prop.rkt")
+                     "srcloc.rkt")
          racket/class
          syntax/parse/define
          "core.rkt")
@@ -21,21 +21,25 @@
      (begin
        (define-syntax-parser define-name
          [(_ (~and header (method-name:id . formals:formals)) body:expr ...+)
-          #:with method-name+props (add-prop #'method-name
-                                             #:formals-stx #'formals
-                                             #:header-stxs (list #'header))
+          #:with header-srcloc (header-srcloc (syntax->list #'(header)))
+          #:with formals-srcloc (formals-srcloc #'formals)
+          #:with positional-syms (formals->positionals #'formals)
           (syntax/loc this-syntax
             (begin
-              (class-keyword method-name+props)
+              (class-keyword method-name)
               ;; Here racket/class need us to expand to something
               ;; matching its method-definition grammar. For the
               ;; method-procedure fortunately we can expand to
               ;; chaperone-procedure.
-              (define-values (method-name+props)
-                (chaperone-procedure (lambda formals body (... ...))
-                                     (make-chaperone-wrapper-proc #'method-name+props)
-                                     chaperone-prop-key
-                                     chaperone-prop-val))))])
+              (define-values (method-name)
+                (chaperone-procedure
+                 (lambda formals body (... ...))
+                 (make-chaperone-wrapper-proc #'method-name
+                                              'header-srcloc
+                                              'formals-srcloc
+                                              'positional-syms)
+                 chaperone-prop-key
+                 chaperone-prop-val))))])
        (provide define-name)))])
 
 (define/provide-method-definer private)

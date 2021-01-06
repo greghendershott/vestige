@@ -2,7 +2,6 @@
 
 (require racket/match
          "../logging/depth.rkt"
-         "id-stx-prop.rkt"
          "logging.rkt")
 
 (provide make-chaperone-wrapper-proc
@@ -12,7 +11,10 @@
 ;; A value for impersonator-prop:application-mark.
 (define chaperone-prop-val (cons depth-key 'app-mark))
 
-(define (make-chaperone-wrapper-proc id-stx)
+(define (make-chaperone-wrapper-proc name
+                                     header-srcloc
+                                     formals-srcloc
+                                     positional-syms)
   ;; Produces a wrapper proc for chaperone-procedure. The depth
   ;; detection -- including tail call detection! -- relies on
   ;; chaperone-procedure also being called with chaperone prop/val
@@ -43,7 +45,6 @@
   ;; detected within wrapper-proc)."
   ;;
   ;; <https://docs.racket-lang.org/reference/chaperones.html?q=impersonate-procedure#%28def._%28%28lib._racket%2Fprivate%2Fbase..rkt%29._impersonate-procedure%29%29>
-  (match-define (vector formals-srcloc header-srcloc positional-syms) (get-prop id-stx))
   (define (on-args kws kw-vals args)
     (let* ([cms (current-continuation-marks)]
            ;; OPTIMIZE: Use cms->iterator to grab marks until we reach a number
@@ -60,7 +61,7 @@
          ;; original call will) and because we want this to remain a
          ;; tail call. Also, do NOT call the raw proc with a new,
          ;; incremented depth-key mark.
-         (log-args id-stx #t args kws kw-vals depth
+         (log-args name #t args kws kw-vals depth
                    formals-srcloc header-srcloc positional-syms)
          (if (null? kws)
              (apply values         args)
@@ -73,11 +74,11 @@
          ;; the raw proc with an incremented depth-key mark.
          (define (on-results . results)
            (with-continuation-mark depth-key new-depth
-             (log-results id-stx results new-depth
-                          formals-srcloc header-srcloc positional-syms))
+             (log-results name results new-depth
+                          formals-srcloc header-srcloc))
            (apply values results))
          (with-continuation-mark depth-key new-depth
-           (log-args id-stx #f args kws kw-vals new-depth
+           (log-args name #f args kws kw-vals new-depth
                      formals-srcloc header-srcloc positional-syms))
          (if (null? kws)
              (apply values on-results 'mark depth-key new-depth         args)
