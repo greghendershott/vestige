@@ -34,12 +34,12 @@
     (datum->syntax stx (infer-name-or-error stx who) stx)))
 
 (define-syntax-parser do-trace-lambda
-  [(_ (~seq #:name name)
-      (~seq #:formals formals:formals)
-      (~optional (~seq #:formals-stx-for-srcloc formals-srcloc-stx)
-                 #:defaults ([formals-srcloc-stx #'formals]))
-      (~optional (~seq #:header-stxs-for-srcloc [header-srcloc-stxs ...])
-                 #:defaults ([(header-srcloc-stxs 1) (list #'formals)]))
+  [(_ {~seq #:name name}
+      {~seq #:formals formals:formals}
+      {~optional {~seq #:formals-stx-for-srcloc formals-srcloc-stx}
+                 #:defaults ([formals-srcloc-stx #'formals])}
+      {~optional {~seq #:header-stxs-for-srcloc [header-srcloc-stxs ...]}
+                 #:defaults ([(header-srcloc-stxs 1) (list #'formals)])}
       body:expr ...+)
    #:with header-srcloc  (header-srcloc (syntax->list #'(header-srcloc-stxs ...)))
    #:with formals-srcloc (formals-srcloc #'formals-srcloc-stx)
@@ -63,7 +63,7 @@
   [(_ formals:formals body:expr ...+)
    #:with name (inferred-name-id this-syntax 'trace-lambda)
    #'(trace-lambda #:name name formals body ...)]
-  [(_ (~seq #:name name:id) formals:formals body:expr ...+)
+  [(_ {~seq #:name name:id} formals:formals body:expr ...+)
    #'(do-trace-lambda #:name name
                       #:formals formals
                       body ...)])
@@ -111,7 +111,7 @@
 
 (define-syntax-parser trace-let
   ;; "Named let"
-  [(_ name:id (~and bindings ([param:id init:expr] ...)) body ...+)
+  [(_ name:id {~and bindings ([param:id init:expr] ...)} body ...+)
    (quasisyntax/loc this-syntax
      (letrec ([name #,(syntax/loc this-syntax
                         (do-trace-lambda #:name name
