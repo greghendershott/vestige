@@ -12,35 +12,42 @@
 ;; `private`, define an alternative to `define/private`:
 ;; `trace-define/private`.
 (define-syntax-parser define/provide-method-definer
-  [(_ class-keyword)
-   #:with define-name (format-id #'class-keyword
-                                 "trace-define/~a"
-                                 (syntax-e #'class-keyword)
-                                 #:source #'class-keyword)
+  [(_ class-keyword:id)
+   #:with definer-name (format-id #'class-keyword
+                                  "trace-define/~a"
+                                  (syntax-e #'class-keyword)
+                                  #:source #'class-keyword)
    (syntax/loc this-syntax
      (begin
-       (define-syntax-parser define-name
-         [(_ (~and header (method-name:id . formals:formals)) body:expr ...+)
-          #:with header-srcloc (header-srcloc (syntax->list #'(header)))
-          #:with formals-srcloc (formals-srcloc #'formals)
-          #:with positional-syms (formals->positionals #'formals)
+       (define-syntax-parser definer-name
+         [(_ id:id expr:expr)
           (syntax/loc this-syntax
             (begin
-              (class-keyword method-name)
+              (class-keyword id)
+              (define id expr)))]
+         [(_ {~and header (id:id . formals:formals)}
+             body:expr ...+)
+          #:with header-srcloc  (header-srcloc (syntax->list #'(header)))
+          #:with formals-srcloc (formals-srcloc #'formals)
+          #:with positionals    (cons 'self (formals->positionals #'formals))
+          (syntax/loc this-syntax
+            (begin
+              (class-keyword id)
               ;; Here racket/class need us to expand to something
-              ;; matching its method-definition grammar. For the
-              ;; method-procedure fortunately we can expand to
+              ;; matching its method-definition grammar:
+              ;; (define-values (id) <method-proceure>). For
+              ;; <method-procedure> fortunately one choice is
               ;; chaperone-procedure.
-              (define-values (method-name)
+              (define-values (id)
                 (chaperone-procedure
                  (lambda formals body (... ...))
-                 (make-chaperone-wrapper-proc #'method-name
+                 (make-chaperone-wrapper-proc 'id
                                               'header-srcloc
                                               'formals-srcloc
-                                              'positional-syms)
+                                              'positionals)
                  chaperone-prop-key
                  chaperone-prop-val))))])
-       (provide define-name)))])
+       (provide definer-name)))])
 
 (define/provide-method-definer private)
 (define/provide-method-definer public)
