@@ -222,9 +222,7 @@ Like @|trace-define-id|.
 
 The ``curried'' syntax --- e.g. @racket[(define ((f x) y) ____)] ---
 expands to nested @racket[trace-lambda]s, each of which has distinct
-source locations and whose @racket[#:name] identifier symbol is formed
-from the base name with the formals appended; see
-@secref["curried-define-example"].}
+source locations.}
 
 @defform*[((trace-let proc-id ([id init-expr] ...) body ...+)
            (trace-let         ([id init-expr] ...) body ...+))]{
@@ -730,29 +728,6 @@ The second @racket[log-example-info] form is nested in a
 greater. The use case here is for more detailed logging that a
 receiver could show indented, folded, or hidden, depending on its user
 interface options.
-
-
-@subsection[#:tag "curried-define-example"]{Example: ``Curried'' define}
-
-Here is how @racket[trace-define] handles so-called ``curried''
-definitions, which expand into nested @racket[trace-lambda]s. Each
-gets a name and a formalssource location that is distinct and
-meaningful. (Otherwise the inner functions would get inferred names
-like @racket[".../partial/path/to/foo.rkt:1:2"] and formals
-locations.)
-
-@margin-note{Although this package accommodates it, some people don't
-like the ``curried'' style. Instead you can always replace it with
-internal definitions of functions, in which case you control the
-name.}
-
-@ex/show[
-  (require vestige/tracing/explicit)
-  (trace-define ((f x0 x1) y0 y1)
-    (+ x0 x1 y0 y1))
-  ((f 1 2) 3 4)
-]
-
 
 @subsection[#:tag "receiver-example"]{Example: Making a log receiver thread}
 

@@ -11,15 +11,6 @@
   (require (submod vestige/receiving private start)))
 (require 'receiver)
 
-(module keyword-example racket/base
-  (require vestige/tracing/explicit
-           vestige/app
-           vestige/logging)
-
-  (trace-define (hello x #:kw kw #:a-kw a-kw [y 'y])
-    (list x kw a-kw y))
-  (hello 'x #:kw 'kw #:a-kw 'a-kw))
-
 ;; This module is an example of using the explicit trace-x forms.
 (module explicit-example racket/base
   (require vestige/tracing/explicit

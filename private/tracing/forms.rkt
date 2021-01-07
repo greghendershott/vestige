@@ -89,48 +89,23 @@
 
 (define-syntax-parser trace-define
   [(_ header:function-header body:expr ...+)
-   ;; Flatten/reverse the formals to be able to generate the nested
-   ;; lambdas.
-   (define all-formals
-     (reverse
-      (let loop ([header #'header])
-        (syntax-parse header
-          [(_:id . fs:formals)
-           (list #'fs)]
-          [(more . fs:formals)
-           (cons #'fs (loop #'more))]))))
-   (define curried? (not (null? (cdr all-formals))))
-   ;; For e.g. (define ((f x0 x1) y0 y1) _) synthesize trace-lambda
-   ;; #:name identifiers like "foo{x0 x1}" and "foo{y0 y1}",
-   ;; attaching a formals stx prop for the specific nested formals'
-   ;; srcloc.
-   (define (name-id fs)
-     (define params (if curried? (formals->curly-params fs) ""))
-     (format-id #f "~a~a" #'header.name params #:source fs))
    #`(define header.name
-       #,(let produce-lambda ([all-formals all-formals])
-           (match all-formals
-             [(list fmls)
+       #,(let produce-lambda ([header #'header])
+           (syntax-parse header
+             [(name:id . fmls:formals)
               (quasisyntax/loc this-syntax
-                (trace-lambda #:name #,(name-id fmls)
-                              #,fmls
+                (trace-lambda #:name name
+                              fmls
                               body ...))]
-             [(cons fmls more)
-              (quasisyntax/loc fmls
-                (trace-lambda #:name #,(name-id fmls)
-                              #,fmls
-                              #,(produce-lambda more)))])))]
+             [(more . fmls:formals)
+              #:with name #'header.name
+              (quasisyntax/loc #'fmls
+                (trace-lambda #:name name
+                              fmls
+                              #,(produce-lambda #'more)))])))]
   [(_ _id:id _expr:expr)
    (define-values (name def) (normalize-definition this-syntax #'lambda #t #t))
    (quasisyntax/loc this-syntax (define #,name #,def))])
-
-(begin-for-syntax
-  (define (formals->curly-params fmls)
-    (syntax-parse fmls
-      [(f:formal ...)
-       (string-append
-        "{" (string-join (map (compose1 symbol->string syntax-e)
-                              (syntax->list #'(f.name ...)))) "}")])))
 
 (define-syntax-parser trace-let
   ;; "Named let"
