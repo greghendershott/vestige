@@ -1,7 +1,7 @@
 #lang racket/base
 
 (require (for-syntax racket/base
-                     racket/match
+                     racket/set
                      (only-in racket/string string-join)
                      (only-in racket/syntax format-id)
                      (only-in syntax/define normalize-definition)
@@ -69,23 +69,25 @@
                       body ...)])
 
 (define-syntax (trace-case-lambda stx)
-  (define name-sym (infer-name-or-error stx 'trace-case-lambda))
+  (define counts null)
   (define-syntax-class clause
-    #:attributes (num-args do-trace-lambda)
-    (pattern (formals:formals body:expr ...+)
-             #:with num-args (length (syntax->list #'formals))
-             #:with name (format-id #'formals "~a" name-sym)
-             #:with do-trace-lambda (syntax/loc stx
-                                      (do-trace-lambda #:name name
-                                                       #:formals formals
-                                                       body ...))))
+    #:attributes (count name formals (body 1))
+    (pattern ({~and formals (_:id ...)} body:expr ...+)
+             #:do[(define n (length (syntax->list #'formals)))]
+             #:fail-when (memq n counts) (format "duplicate clause for ~a arguments" n)
+             #:do [(set! counts (cons n counts))]
+             #:with name (format-id this-syntax "clause-~a" n)
+             #:with count n))
   (syntax-parse stx
     [(_ clause:clause ...+)
-     #:with name name-sym
+     #:with name (inferred-name-id stx 'trace-case-lambda)
      #'(lambda args
-         (case (length args)
-           [(clause.num-args) (apply clause.do-trace-lambda args)] ...
-           [else (apply raise-arity-error 'name '(clause.num-args ...) args)]))]))
+         (let ([clause.name (trace-lambda #:name name
+                                          clause.formals
+                                          clause.body ...)] ...)
+          (case (length args)
+            [(clause.count) (apply clause.name args)] ...
+            [else (apply raise-arity-error 'name '(clause.count ...) args)])))]))
 
 (define-syntax-parser trace-define
   [(_ header:function-header body:expr ...+)
