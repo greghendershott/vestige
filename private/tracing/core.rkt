@@ -1,6 +1,7 @@
 #lang racket/base
 
 (require racket/match
+         "../in-marks.rkt"
          "../logging/depth.rkt"
          "logging.rkt")
 
@@ -48,8 +49,9 @@
   (define (on-args kws kw-vals args)
     ;; For efficiency, don't get full list of marks. We only care
     ;; about those through the first one that is a number (if any).
-    (match (cms->marks-through-first-number (current-continuation-marks)
-                                            depth-key)
+    (match (for/list ([v (in-marks (current-continuation-marks) depth-key)]
+                      #:final (number? v))
+             v)
       [(or
         ;; This first pattern is, IIUC, to work around
         ;; <https://github.com/racket/racket/issues/1836>.
@@ -83,41 +85,3 @@
   (define (plain-proc . args)          (on-args null null    args))
   (define (kw-proc kws kw-vals . args) (on-args kws  kw-vals args))
   (make-keyword-procedure kw-proc plain-proc))
-
-;; Return list of mark values stopping at and including the first one
-;; that is a number.
-(define (cms->marks-through-first-number cms key)
-  (let loop ([iter (continuation-mark-set->iterator cms (list key))])
-    (define-values (v new-iter) (iter))
-    (match v
-      [(vector v)
-       (if (number? v)
-           (list v)
-           (cons v (loop new-iter)))]
-      [#f (list)])))
-
-(module+ test
-  (require rackunit
-           syntax/parse/define)
-  ;; This little macro applies with-continuation-mark to the identity
-  ;; function -- extending the continuation with a new initial frame
-  ;; (preventing it being a tail call).
-  ;;
-  ;; This preserves previously set mark values. (Because otherwise, if
-  ;; the initial continuation frame already has a value for a key,
-  ;; w-c-m replaces the old value with the new value in that frame.)
-  (define-simple-macro (with-mark key:expr val:expr body:expr)
-    ((λ (x) x) ;add a frame i.e. extend the continuation
-     (with-continuation-mark key val
-       body)))
-  (let ([key 'key])
-    (with-mark key 0
-      (with-mark key 'c
-        (with-mark key 1
-          (with-mark key 'b
-            (with-mark key 'a
-             (let ([cms (current-continuation-marks)])
-               (check-equal? (continuation-mark-set->list cms key)
-                             '(a b 1 c 0))
-               (check-equal? (cms->marks-through-first-number cms key)
-                             '(a b 1))))))))))
