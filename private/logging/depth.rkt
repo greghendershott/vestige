@@ -1,6 +1,7 @@
 #lang racket/base
 
 (require (for-syntax racket/base)
+         racket/match
          syntax/parse/define)
 
 (provide depth-key ;for use also by tracing/core.rkt
@@ -19,8 +20,16 @@
 (define depth-key 'vestige-depth-continuation-mark-key)
 
 (define (cms->logging-depth cms)
-  (define marks (continuation-mark-set->list cms depth-key))
-  (marks->logging-depth marks))
+  ;; For efficiency iterate until we have a number value (don't get
+  ;; list of all marks beyond what we need).
+  (let loop ([iter (continuation-mark-set->iterator cms (list depth-key))])
+    (define-values (v new-iter) (iter))
+    (match v
+      [(vector v)
+       (if (number? v)
+           v
+           (loop new-iter))]
+      [#f #f])))
 
 (define (marks->logging-depth marks)
   (or (findf number? marks)
