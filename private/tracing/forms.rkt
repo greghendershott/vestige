@@ -10,7 +10,7 @@
                      "srcloc.rkt")
          syntax/parse/define
          "../logging/app.rkt"
-         "core.rkt")
+         "wrap.rkt")
 
 ;; NOTE: These surface macros are fairly different from racket/trace.
 ;; We don't support mutating definitions with `trace` and `untrace`.

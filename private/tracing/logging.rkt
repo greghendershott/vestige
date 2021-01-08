@@ -5,8 +5,7 @@
          racket/string
          syntax/parse/define
          "../logging/log.rkt"
-         "../logging/srcloc.rkt"
-         "../logging/common.rkt")
+         "../logging/information.rkt")
 
 (provide log-args
          log-results

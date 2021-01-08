@@ -8,7 +8,7 @@
          "private/logging/app.rkt"
          "private/logging/context.rkt"
          "private/logging/depth.rkt"
-         "private/logging/common.rkt"
+         "private/logging/information.rkt"
          "private/tracing/logging.rkt")
 
 (provide log-receiver-vector->hasheq

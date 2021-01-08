@@ -4,14 +4,14 @@
          syntax/parse/define
          "../in-marks.rkt")
 
-(provide depth-key ;for use also by tracing/core.rkt
+(provide depth-key ;for use also by tracing/wrap.rkt
          cms->logging-depth
          marks->logging-depth
          with-more-logging-depth)
 
 ;; Key used for a continuation mark to indicate the depth. Non-tail
 ;; calls of traced functions adjust the depth automatically; see
-;; tracing/core.rkt.
+;; tracing/wrap.rkt.
 ;;
 ;; In addition, `with-more-logging-depth` increases the depth for a
 ;; dynamic extent.

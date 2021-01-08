@@ -5,7 +5,7 @@
          racket/match
          syntax/parse/define
          (only-in "log.rkt" log? log!)
-         "common.rkt")
+         "information.rkt")
 
 (provide log-expression)
 

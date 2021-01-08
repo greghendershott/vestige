@@ -6,7 +6,7 @@
                      "srcloc.rkt")
          racket/class
          syntax/parse/define
-         "core.rkt")
+         "wrap.rkt")
 
 ;; A macro-defining macro. Given a racket/class keyword like
 ;; `private`, define an alternative to `define/private`:
