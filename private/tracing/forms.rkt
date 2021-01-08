@@ -1,10 +1,7 @@
 #lang racket/base
 
 (require (for-syntax racket/base
-                     racket/set
-                     (only-in racket/string string-join)
                      (only-in racket/syntax format-id)
-                     (only-in syntax/define normalize-definition)
                      (only-in syntax/name syntax-local-infer-name)
                      syntax/parse/lib/function-header
                      "srcloc.rkt")
@@ -105,9 +102,8 @@
                 (trace-lambda #:name name
                               fmls
                               #,(produce-lambda #'more)))])))]
-  [(_ _id:id _expr:expr)
-   (define-values (name def) (normalize-definition this-syntax #'lambda #t #t))
-   (quasisyntax/loc this-syntax (define #,name #,def))])
+  [(_ id:id expr:expr)
+   (quasisyntax/loc this-syntax (define id expr))])
 
 (define-syntax-parser trace-let
   ;; "Named let"
