@@ -7,9 +7,9 @@
 ;; events. Putting this in a submodule ensures it runs before the
 ;; other submodules run! (If this were at the top, file module level,
 ;; it would run later.)
-(module receiver racket/base
+(module start-receiver racket/base
   (require (submod vestige/receiving private start)))
-(require 'receiver)
+(require 'start-receiver)
 
 ;; This module is an example of using the explicit trace-x forms.
 (module explicit-example racket/base
@@ -164,3 +164,9 @@
                [() 0]
                [(x) x]
                [(x y) (+ x y)])))
+
+;; Finally stop the receiver, letting it print the accumulated output,
+;; after module evaluations have printed results, not intermixed.
+(module stop-receiver racket/base
+  (require (submod vestige/receiving private stop)))
+(require 'stop-receiver)

@@ -153,21 +153,46 @@
     (values (serialize-key k)
             (serialize-value v))))
 
-(define (start-log-receiver-thread proc . args)
-  (define receiver (apply make-log-receiver args))
-  (define (get-event)
-    (proc (sync receiver))
-    (get-event))
-  (thread get-event))
-
-;; For use by things like example.rkt and Scribble documentation.
-;; Starts a log receiver thread that pretty-prints jsxpr? hasheqs.
+;; For use by things like example.rkt.
 (module+ private
+  (provide start stop)
+
+  ;; Starts a log receiver thread that pretty-prints
+  ;; log-receiver-vector->hasheq to an output-string.
+  (define (start)
+    (define receiver (make-log-receiver (current-logger)
+                                        vestige-level vestige-topic
+                                        'info 'example
+                                        'fatal #f))
+    (define out (open-output-string))
+    (define (prn v)
+      (pretty-print (log-receiver-vector->hasheq v)
+                    out))
+    (define (clear)
+      (define v (sync/timeout 0 receiver))
+      (when v
+        (prn v)
+        (clear)))
+    (define stop-chan (make-channel))
+    (define thd
+      (thread
+       (λ ()
+         (let loop ()
+           (match (sync receiver stop-chan)
+             ['stop (clear)]
+             [v (prn v) (loop)])))))
+    (set! stop
+          (λ ()
+            (channel-put stop-chan 'stop)
+            (thread-wait thd)
+            (display (get-output-string out)))))
+
+  ;; Stop the log receiver thread and the accumulated output.
+  (define (stop)
+    (error 'stop-log-receiver-thread "not started"))
+
   (module+ start
-    (void
-     (start-log-receiver-thread (compose pretty-print
-                                         log-receiver-vector->hasheq)
-                                (current-logger)
-                                vestige-level vestige-topic
-                                'info 'example
-                                'fatal #f))))
+    (start))
+
+  (module+ stop
+    (stop)))

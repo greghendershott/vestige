@@ -33,23 +33,8 @@
 @(define (tech/ref . pre-content)
    (apply tech #:doc '(lib "scribblings/reference/reference.scrbl") pre-content))
 
-@(define-syntax-rule (ex eval pre-content ...)
-   (examples #:eval eval
-             #:no-prompt
-             #:label #f
-             #:preserve-source-locations
-             pre-content ...))
-
-@(define-syntax-rule (ex/show pre-content ...)
-   (let ((e (make-base-eval)))
-     (examples #:eval e #:hidden (require (submod vestige/receiving private start)))
-     (ex e pre-content ...)))
-
-@(define-syntax-rule (ex/no-show pre-content ...)
-   (ex (make-base-eval) pre-content ...))
-
-@(define-syntax-rule (defmapping key type pre-contents ...)
-   (defthing #:kind "mapping" #:link-target? #f key type pre-contents ...))
+@(define-syntax-rule (defmapping key type pre-content ...)
+   (defthing #:kind "mapping" #:link-target? #f key type pre-content ...))
 
 @title{Vestige}
 
@@ -304,11 +289,11 @@ the depth by one for the dynamic extent of the form.
 
 When you use a @racket[vestige/tracing] module like
 @racketmodname[vestige/tracing/explicit], the depth at any point is
-the depth of the traced call(s). Other, ordinary logging is ``at that
-depth'' automatically --- without using this form. For example a
+the depth of the traced call(s). Other, ordinary logging is ``under
+that depth'' automatically --- without using this form. For example a
 @racket[log-info] in the body of a traced function is automatically at
-the same depth as the tracing showing the function call. (You only
-need use this form if you want to increase the depth even more.)
+one more than the depth as the tracing showing the function call. (You
+only need use this form if you want to increase the depth even more.)
 
 See also @racket[cms->logging-depth].}
 
@@ -517,7 +502,8 @@ reason for the choice of a @racket[hasheq] instead of a
 about and ignore others. For example use @racket[hash-ref] or use the
 @racketmodname[racket/match] @racket[hash-table] match pattern.
 
-Also with respect to source locations:
+Also with respect to source locations, the following representation is
+used:
 
 @nested[#:style 'inset
   @defthing[#:link-target? #f srcloc-as-list?
@@ -680,101 +666,158 @@ A hash-table satisfying @racket[jsexpr?] is obviously necessary to use
 @racket[jsexpr->string], and more generally, is likely ready to
 serialize/marshal using most other formats.}
 
+@;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 @section{Examples}
+
+@(define-syntax-rule (ex pre-content ...)
+   (examples #:no-prompt
+             #:label #f
+             #:preserve-source-locations
+             pre-content ...))
+
+@(define-syntax-rule (ex/show #:example-require ?example-require
+                              ?pre-content ...)
+   (begin
+     ?example-require
+     (list
+      (examples #:no-result
+                #:preserve-source-locations
+                ?example-require
+                ?pre-content ...)
+      (verbatim
+       (let ([out (open-output-string)])
+         (local-require racket/logging
+                        racket/pretty
+                        vestige/receiving)
+         (with-intercepted-logging
+           (λ (v)
+             (newline out)
+             (pretty-print (for/fold ([ht (log-receiver-vector->hasheq v)])
+                                     ([k  (in-list '(info context))])
+                             (hash-remove ht k))
+                           out
+                           1))
+           (λ () ?pre-content ...)
+           vestige-level vestige-topic
+           'info         'example
+           'fatal        #f)
+         (get-output-string out))))))
+
 
 @subsection{Example: Tracing}
 
-@margin-note{Just for the sake of this documentation we've arranged
- for a logger receiver to pretty-print the logger data here.}
-
-@margin-note{The source location values in these examples such as
- @racketresult[("eval" 2 0 2 1)] are a result of how these examples
- are evaluated to build this documentation. In real use, when the
- source is a file, @racketresult["eval"] would instead would be
- something like @racketresult["/path/to/file.rkt"].}
-
-Here is a small example of what the structured logging data looks
-like:
+Here is a small example program. Below it is an example of the
+resulting structured logging data, as produced by
+@racket[log-receiver-vector->hasheq] (but with some mappings removed
+to make the output less overwhelming):
 
 @ex/show[
-  (require vestige/tracing/explicit
-           vestige/logging)
-  (define-logger example)
+#:example-require (require vestige/app
+                           vestige/tracing/explicit
+                           vestige/logging)
 
-  (log-example-info "I am outside, my depth is 0")
+(define-logger example)
 
-  (trace-define (f x)
-    (log-example-info "I am at the same depth as `f`: 2.")
-    (with-more-logging-depth
-      (log-example-info "I am one deeper: 3."))
-    (+ 1 x))
+(log-example-info "I am outside, my depth is 0")
 
-  (trace-define (g x)
-    (+ 1 (f x)))
+(trace-define (f x)
+  (log-example-info "I am automatically under the depth of `f`: 2.")
+  (with-more-logging-depth
+    (log-example-info "I am one deeper: 3."))
+  (+ 1 x))
 
-  (g 42)
+(trace-define (g x)
+  (+ 1 (f x)))
 
-  (log-expression (* 2 3))
+(g 42)
+
+(log-expression (* 2 3))
 ]
 
-The @racket[trace-define] forms cause log events for function calls
-and results, with complete tracing information.
+The @racket[trace-define] forms cause loger events for function calls
+and results, with extra information under the @racket['tracing] key.
 
-The first @racket[log-example-info] form has the same logging depth as
-the call to @racket[f]. This happens automatically.
+Also note the depths of the @racket[log-example-info] forms:
 
-The second @racket[log-example-info] form is nested in a
+The first @racket[log-example-info] is not within any traced function
+call or @racket[with-more-logging-depth] form, so its depth is the
+default, 0.
+
+The second @racket[log-example-info] is inside the call to @racket[f]
+at depth 1, so automatically its depth is 2.
+
+The third @racket[log-example-info] is within a
 @racket[with-more-logging-depth] form; as a result, its depth is one
-greater. The use case here is for more detailed logging that a
+greater: 3. The use case here is for more detailed logging that a
 receiver could show indented, folded, or hidden, depending on its user
 interface options.
 
+
 @subsection[#:tag "receiver-example"]{Example: Making a log receiver thread}
 
-The previous examples were printing some logger data because, in the
+Although @racketmodname[racket/trace] prints output,
+@racket[vestige/tracing] does not --- instead it emits logger events.
+
+The previous example showed logger data because, here in the
 documentation environment, we arranged a simple @tech/ref{log
-receiver} thread much like this:
+receiver} thread somewhat like this:
 
 @racketblock[
-  (require vestige/receiving)
-  (define receiver (make-log-receiver (current-logger)
-                                      vestige-level vestige-topic
-                                      'info 'example
-                                      'fatal #f))
-  (define (get-event)
-    (pretty-print (log-receiver-vector->hasheq (sync receiver)))
-    (get-event))
-  (thread get-event)
+(require vestige/receiving)
+(define receiver
+  (make-log-receiver (current-logger)
+                     (code:comment "A sequence of levels and topics...")
+                     (code:comment "vestige")
+                     vestige-level vestige-topic
+                     (code:comment "(define-logger example) / log-example-info")
+                     'info 'example
+                     (code:comment "only fatal for all other topics")
+                     'fatal #f))
+(define (get-event)
+  (pretty-print (log-receiver-vector->hasheq (sync receiver)))
+  (get-event))
+(thread get-event)
 ]
+
+We ask @racket[make-log-receiver] to accept events from vestige's
+level and topic and from the @racket['info] level of the
+@racket['example] topic since our example used @racket[(define-logger
+example)].
+
 
 @subsection{Using @racket[with-intercepted-logging] and JSON}
 
 Another way to make a log receceiver is to use the
 @racketmodname[racket/logging] convenience function
-@racket[with-intercepted-logging], and supply it values from
-@racketmodname[vestige/receiving]. The following example shows that.
+@racket[with-intercepted-logging], and supplying it level and topic
+values from @racketmodname[vestige/receiving]. The following example
+shows that.
 
 Furthermore it shows using @racket[serializable-hasheq] and
 @racket[jsexpr->string] to convert the hash-table to its JSON string
 representation.
 
-@ex/no-show[
-  (require json
-           racket/logging
-           racket/match
-           vestige/tracing/explicit
-           vestige/receiving)
+@ex[
+(code:comment "The code being instrumented")
+(module ex racket/base
+  (require vestige/tracing/explicit)
   (define (example)
     (trace-define (f x) (+ 1 x))
     (trace-define (g x) (+ 1 (f x)))
     (g 42))
-  (define interceptor
-    (compose displayln
-             jsexpr->string
-             serializable-hasheq
-             log-receiver-vector->hasheq))
-  (with-intercepted-logging interceptor example
-    vestige-level vestige-topic)
+  (provide example))
+(code:comment "Running the code and capturing logging")
+(require 'ex
+         json
+         racket/logging
+         vestige/receiving)
+(with-intercepted-logging (compose displayln
+                                   jsexpr->string
+                                   serializable-hasheq
+                                   log-receiver-vector->hasheq)
+  example
+  vestige-level vestige-topic)
 ]
 
 Instead of @racket[displayln], this code could give the JSON string to
