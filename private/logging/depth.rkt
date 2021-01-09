@@ -22,8 +22,9 @@
 (define (cms->logging-depth cms)
   ;; For efficiency iterate until we have a number value (don't get
   ;; list of all marks beyond what we need).
-  (for/or ([v (in-marks cms depth-key)])
-    (and (number? v) v)))
+  (or (for/or ([v (in-marks cms depth-key)])
+        (and (number? v) v))
+      0))
 
 (define (marks->logging-depth marks)
   (or (findf number? marks)
