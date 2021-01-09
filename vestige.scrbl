@@ -367,13 +367,13 @@ by @racket[log-expression]. See @secref["receiver-example"].}
 
 @subsection{Event vectors}
 
+@subsubsection{High level}
+
 @margin-note{Although most values are primitive strings and numbers,
 some may be ``live'' Racket values such as thread descriptors, in case
 your log receiver wants to do further processing. You may need to
 apply @racket[serializable-hasheq] to this hash-table before giving it
 hash-table to a function such as @racket[jsexpr->string].}
-
-@subsubsection{High level}
 
 @defproc[(log-receiver-vector->hasheq [v (vector/c log-level/c
                                                    string?
@@ -663,7 +663,7 @@ For example, symbols are converted to strings, and thread descriptors
 are converted to strings using @racket[object-name].
 
 A hash-table satisfying @racket[jsexpr?] is obviously necessary to use
-@racket[jsexpr->string], and more generally, is likely ready to
+@racket[jsexpr->string], and generally is more likely ready to
 serialize/marshal using most other formats.}
 
 @;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
