@@ -2,8 +2,8 @@
 
 (require (for-syntax racket/base
                      (only-in racket/syntax format-id)
-                     (only-in syntax/name syntax-local-infer-name)
                      syntax/parse/lib/function-header
+                     "infer-name.rkt" ;not syntax/name
                      "srcloc.rkt")
          syntax/parse/define
          "../logging/app.rkt"
