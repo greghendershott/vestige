@@ -130,7 +130,7 @@
       ;; other than boldly highlghting the entire thing.
       ht))
 
-;; Change as necessary to satisfy jsexpr?
+;; Change as necessary to satisfy `jsexpr?`
 (define (serializable-hasheq h)
   (define (serialize-key k)
     (match k

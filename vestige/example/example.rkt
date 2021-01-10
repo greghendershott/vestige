@@ -8,12 +8,12 @@
 ;; other submodules run! (If this were at the top, file module level,
 ;; it would run later.)
 (module start-receiver racket/base
-  (require (submod vestige/receiving private start)))
+  (require (submod "../receiving.rkt" private start)))
 (require 'start-receiver)
 
 ;; This module is an example of using the explicit trace-x forms.
 (module explicit-example racket/base
-  (require vestige/tracing/explicit
+  (require vestige/tracing
            vestige/app
            vestige/logging)
   (define-logger example)
@@ -106,12 +106,12 @@
 (require 'hash-update-example)
 
 (module m racket/base
-  (require vestige/tracing/explicit
+  (require vestige/tracing
            (submod vestige/receiving private start))
   ((trace-lambda #:name foo (x) x) 1))
 
 (module class-example racket/base
-  (require vestige/tracing/class/explicit)
+  (require vestige/tracing/class)
   (define fish%
     (class object%
       (init size)                ; initialization argument
