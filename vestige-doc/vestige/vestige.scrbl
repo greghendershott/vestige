@@ -110,6 +110,8 @@ additional information is captured and its disposition is different:
 
 @defmodule[vestige/tracing]
 
+@margin-note{See also @racket[log-expression].}
+
 The @racketmodname[vestige/tracing] module provides distinctly named
 forms. Use this when you want to instrument only some functions in a
 module.
@@ -292,11 +294,11 @@ the depth by one for the dynamic extent of the form.
 
 When you use a @racketmodname[vestige/tracing] module, the depth at
 any point is the depth of the traced call(s). Other, ordinary logging
-is ``under that depth'' automatically --- without using this form. For
-example a @racket[log-info] in the body of a traced function is
-automatically at one more than the depth as the tracing showing the
-function call. (You only need use this form if you want to increase
-the depth even more.)
+is ``under that depth'' automatically. For example a @racket[log-info]
+in the body of a traced function is automatically at one more than the
+depth as the tracing showing the function call. You only need use
+@racket[with-more-logging-depth] if you want to increase the depth
+even more.
 
 See also @racket[cms->logging-depth].}
 
@@ -304,11 +306,10 @@ See also @racket[cms->logging-depth].}
 information like @racket[current-inexact-milliseconds] and
 @racket[current-thread] in a continuation mark. Capturing such
 information eagerly matters because logger events are received later
-and in a different thread; even if you were to use a custom log
-receiver, it would be too late to add the information.
+and in a different thread.
 
 Also records the srcloc for the form, enabling a tool to show the
-source of the logging.
+source of logging within the dynamic extent of this form..
 
 See also @racket[cms->logging-info].}
 
@@ -332,9 +333,10 @@ application.
 Requiring this shadows the @racketidfont{#%app} provided by the module
 language, for instance the @|#%app-id| of @racketmodname[racket/base].
 
-In other words, @racket[(require vestige/app)] is a convenient way to
-enable call-site information for @emph{calls from} that module, but by
-itself does not instrument anything @emph{defined} in that module.
+Using @racket[(require vestige/app)] in a module records the locations
+of @emph{calls from} that module. Then, when any module uses
+@racketmodname[vestige/tracing] to trace @emph{calls to} a defined
+function, the tracing can discover and also report the caller site.
 
 @defform[(#%app expr ...+)]{
 
