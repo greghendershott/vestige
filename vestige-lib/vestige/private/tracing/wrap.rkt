@@ -50,7 +50,11 @@
                                               header-srcloc
                                               formals-srcloc
                                               positional-syms)
-  (-> procedure? symbol? srcloc-as-list/c srcloc-as-list/c (listof symbol?)
+  (-> procedure?
+      symbol?
+      srcloc-as-list/c
+      srcloc-as-list/c
+      (or/c (listof symbol?) symbol?)
       procedure?)
   (define (on-args kws kw-vals args)
     (define caller-srcloc (immediate-caller-srcloc proc))

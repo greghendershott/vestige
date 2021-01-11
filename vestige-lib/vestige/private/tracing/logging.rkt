@@ -32,7 +32,7 @@
   (define args-str (string-join
                     (append (match positional-syms
                               [(? symbol? s)
-                               (list ". " (~a s "=" (~v args)))]
+                               (list (~a s "=" (~v args)))]
                               [(? list? ss)
                                (for/list ([s (in-list ss)]
                                           [v (in-list args)])
