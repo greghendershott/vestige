@@ -44,38 +44,53 @@
 
 ;; Given two stxs, produce srcloc for the span from the first to the
 ;; second.
-(define (merge first last)
-  (define src  (syntax-source first))
-  (define line (syntax-line first))
-  (define col  (syntax-column first))
-  (define pos  (syntax-position first))
-  (define end (+ (syntax-position last) (syntax-span last)))
+(define (merge from thru)
+  (unless (equal? (syntax-source from) (syntax-source thru))
+    (raise-arguments-error 'merge "expected same syntax-source"
+                           "from" from
+                           "thru" thru))
+  (unless (<= (syntax-position from) (syntax-position thru))
+    (raise-arguments-error 'merge "expected syntax-position of from <= thru"
+                           "from" from
+                           "thru" thru))
+  (define src  (syntax-source from))
+  (define line (syntax-line from))
+  (define col  (syntax-column from))
+  (define pos  (syntax-position from))
+  (define end (+ (syntax-position thru) (syntax-span thru)))
   (define span (- end pos))
   (->srcloc-as-list (list src line col pos span)))
 
 (module+ test
   (require rackunit
            racket/match)
-  (define here #'here)
-  (define there #'there)
-  (let ([here here]
-        [there there])
-    (match-define (list src line col pos span) (merge here there))
-    (check-equal? src (path->string (syntax-source here)))
-    (check-equal? line (syntax-line here))
-    (check-equal? col (syntax-column here))
-    (check-equal? pos (syntax-position here))
-    (check-equal? span (- (+ (syntax-position there) (syntax-span there))
-                          (syntax-position here))))
-  (let ([here here]
-        [there here])
-    (match-define (list src line col pos span) (merge here there))
-    (check-equal? src (path->string (syntax-source here)))
-    (check-equal? line (syntax-line here))
-    (check-equal? col (syntax-column here))
-    (check-equal? pos (syntax-position here))
-    (check-equal? span (- (+ (syntax-position there) (syntax-span there))
-                          (syntax-position here)))))
+  (let ([a #'a]
+        [b #'b])
+    (match-define (list src line col pos span) (merge a b))
+    (check-equal? src (path->string (syntax-source a)))
+    (check-equal? line (syntax-line a))
+    (check-equal? col (syntax-column a))
+    (check-equal? pos (syntax-position a))
+    (check-equal? span (- (+ (syntax-position b) (syntax-span b))
+                          (syntax-position a))))
+  (let ([a #'a]
+        [b #'b])
+    (match-define (list src line col pos span) (merge a b))
+    (check-equal? src (path->string (syntax-source a)))
+    (check-equal? line (syntax-line a))
+    (check-equal? col (syntax-column a))
+    (check-equal? pos (syntax-position a))
+    (check-equal? span (- (+ (syntax-position b) (syntax-span b))
+                          (syntax-position a))))
+  (let ([a #'a]
+        [b #'b])
+    (define (pos-err? e)
+      (and (exn:fail:contract? e)
+           (regexp-match? "^merge: expected syntax-position of from <= thru"
+                          [exn-message e])))
+    (check-exn pos-err?
+               (λ () (merge b a)) ;oops: b is later than a
+               "appropriate error raised misordered stx positions")))
 
 ;; Return a list of symbols for the names of required or optional
 ;; POSITIONAL parameters -- but NOT required or optional KEYWORD
