@@ -5,7 +5,7 @@
          (rename-in "private/logging/log.rkt"
                     [topic vestige-topic]
                     [level vestige-level])
-         "private/logging/app.rkt"
+         "private/logging/srcloc.rkt"
          "private/logging/context.rkt"
          "private/logging/depth.rkt"
          "private/logging/information.rkt"
@@ -17,9 +17,9 @@
          vestige-topic
          vestige-level
          ;; Low level instead of using vector->hasheq
+         srcloc-as-list/c
          cms->logging-depth
          cms->logging-info
-         cms->caller-srcloc
          cms->context-srcloc
          cms->tracing-data
          performance-vectors->hasheq)
@@ -28,12 +28,12 @@
   (match v
     [(vector level message (? continuation-mark-set? cms) topic)
      (define tracing (cms->tracing-data cms))
-     (hasheq 'message (or (and tracing (hash-ref tracing 'message #f))
+     (hasheq 'message (if tracing
+                          (hash-ref tracing 'message #f)
                           message)
              'topic   topic
              'level   level
              'depth   (cms->logging-depth cms)
-             'caller  (cms->caller-srcloc cms)
              'context (cms->context-srcloc cms)
              'info    (cms->logging-info cms)
              'tracing tracing)]
@@ -71,7 +71,8 @@
                  ['args-from    args-from]
                  ['args-upto    args-upto]
                  ['formals      formals]
-                 ['header       header])
+                 ['header       header]
+                 ['caller       caller])
      ;; Tracing call or results. The primary site is the called site
      ;; i.e where the function is defined. The secondary site is the
      ;; caller site (if any such information is available).
@@ -95,7 +96,7 @@
                     (list 'replace file pos (+ pos span)
                           (substring message args-from args-upto))])])
               #:secondary
-              (match (hash-ref ht 'caller #f)
+              (match caller
                 [(list file _line _col pos span)
                  (list 'replace file pos (+ pos span) message)]
                 [_ #f]))
@@ -106,7 +107,7 @@
                    (list 'after file pos (+ pos span) msg)]
                   [_ #f])
                 #:secondary
-                (match (hash-ref ht 'caller #f)
+                (match caller
                   [(list file _line _col pos span)
                    (list 'after file pos (+ pos span) msg)]
                   [_ #f]))))]

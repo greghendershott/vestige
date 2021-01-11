@@ -41,7 +41,8 @@
               (define-values (id)
                 (chaperone-procedure
                  (lambda formals body (... ...))
-                 (make-chaperone-wrapper-proc 'id
+                 (make-chaperone-wrapper-proc void
+                                              'id
                                               'header-srcloc
                                               'formals-srcloc
                                               'positionals)

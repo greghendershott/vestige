@@ -162,6 +162,26 @@ convenient way to trace everything in a module without otherwise
 needing to litter its source with individual changes.
 
 
+@subsection{Instrumenting caller sites}
+
+@defmodule[vestige/app]
+
+Requiring @racket[(require vestige/app)] in a module records the
+locations of @emph{calls from} that module. Then, when a module uses
+@racketmodname[vestige/tracing] to trace @emph{calls to} a defined
+function, tracing can check whether the direct caller was instrumented
+and if so report its location.
+
+@defform[(#%app proc-expr expr ...)]{
+
+Adds a continuation mark with @racket[proc-expr] and the source
+location of the entire application expression, then invokes the
+@|#%app-id| of @racketmodname[racket/base].
+
+Using this is optional. Although it enhances tracing by enabling
+caller sites to be reported, it imposes some runtime overhead.}
+
+
 @subsection{Instrumenting specific @racketmodname[racket/class] method definitions}
 
 @defmodule[vestige/tracing/class]
@@ -265,8 +285,6 @@ Structured tracing logs can be used in two main ways:
 
 @section{Logging}
 
-@subsection{Depth and other information}
-
 @defmodule[vestige/logging]
 
 This module provides forms that use @tech/ref{continuation marks} to
@@ -322,35 +340,6 @@ Effectively a composition of @racket[with-more-logging-info] and a
 @racket[vestige-level].}
 
 
-@subsection{Application site}
-
-@defmodule[vestige/app]
-
-The @racketmodname[vestige/app] module provides an @racket[#%app] that
-adds a continuation mark to record the source location of an
-application.
-
-Requiring this shadows the @racketidfont{#%app} provided by the module
-language, for instance the @|#%app-id| of @racketmodname[racket/base].
-
-Using @racket[(require vestige/app)] in a module records the locations
-of @emph{calls from} that module. Then, when any module uses
-@racketmodname[vestige/tracing] to trace @emph{calls to} a defined
-function, the tracing can discover and also report the caller site.
-
-@defform[(#%app expr ...+)]{
-
-Expands to @racket[(with-continuation-mark key loc (base-#%app expr
-...))], where @racket[key] is a private value, @racket[loc] is
-@racket[srcloc] of the application site, and @racket[base-#%app] is
-the @|#%app-id| of @racketmodname[racket/base].
-
-Using this is optional. Although it allows application site
-information to be logged, it imposes some runtime overhead.
-
-See also @racket[cms->caller-srcloc].}
-
-
 @;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 @section{Receiving}
@@ -401,7 +390,6 @@ Effectively this is a convenience function you could write yourself:
              'topic   topic
              'level   level
              'depth   (cms->logging-depth cms)
-             'caller  (cms->caller-srcloc cms)
              'context (cms->context-srcloc cms)
              'info    (cms->logging-info cms)
              'tracing tracing)]
@@ -511,18 +499,18 @@ reason for the choice of a @racket[hasheq] instead of a
 about and ignore others. For example use @racket[hash-ref] or use the
 @racketmodname[racket/match] @racket[hash-table] match pattern.
 
-Also with respect to source locations, the following representation is
-used:
+@defthing[srcloc-as-list/c contract?
+          #:value
+          (list/c (or/c #f (and/c string? path-string?))
+                  (or/c #f exact-positive-integer?)
+                  (or/c #f exact-nonnegative-integer?)
+                  (or/c #f exact-positive-integer?)
+                  (or/c #f exact-nonnegative-integer?))]{
 
-@nested[#:style 'inset
-  @defthing[#:link-target? #f srcloc-as-list?
-           (list/c (or/c path-string? #f)
-                   line column position span)]{
-
-  For ease of serialization, values that represent a @racket[srcloc]
-  structure are instead represented as a list, where the first,
-  ``source'' value is either a @racket[path] converted with
-  @racket[path->string], or @racket[#f].}]
+For ease of serialization, values that represent a @racket[srcloc]
+structure are instead represented as a list, where the first,
+``source'' value is either a @racket[path] converted with
+@racket[path->string], or @racket[#f].}
 
 @defproc[(cms->logging-depth [cms continuation-mark-set?])
          (or/c #f exact-nonnegative-number?)]{
@@ -530,15 +518,8 @@ used:
 Returns the depth as set by @racket[with-more-logging-depth] and/or
 the tracing forms.}
 
-@defproc[(cms->caller-srcloc [cms continuation-mark-set?])
-         (or/c #f srcloc-as-list?)]{
-
-Returns the mark value set by @racket[#%app].
-
-See also the high level @racket[add-presentation-sites].}
-
 @defproc[(cms->context-srcloc [cms continuation-mark-set?])
-         (or/c #f srcloc-as-list?)]{
+         (or/c #f srcloc-as-list/c)]{
 
 Returns the first non-false srcloc value, if any, from
 @racket[continuation-mark-set->context] whose source is
@@ -554,13 +535,13 @@ mappings:
 
 @nested[#:style 'inset
 
-  @defmapping['srcloc (or/c #f srcloc-as-list?)]{The source location
+  @defmapping['srcloc (or/c #f srcloc-as-list/c)]{The source location
   of the @racket[with-more-logging-info] form.
 
   Note: Internal uses of @racket[with-more-logging-info] by
   @racketmodname[vestige/tracing] forms set this value false, because
   the internal location is not relevant --- instead
-  @racket[cms->tracing-info] supplies the interesting srclocs.
+  @racket[cms->tracing-data] supplies the interesting srclocs.
 
   See also the high level @racket[add-presentation-sites].}
 
@@ -615,7 +596,7 @@ with at least the following mappings:
 
   @defmapping['name string?]{The name of the function.}
 
-  @defmapping['identifier srcloc-as-list?]{The location of the
+  @defmapping['identifier srcloc-as-list/c]{The location of the
   identifier naming the function defintion.}
 
   @defmapping['message string?]{When @racket['call] is true, the
@@ -642,7 +623,7 @@ with at least the following mappings:
   may be equal (indicating an empty string) when a function has no
   formal parameters (a ``thunk'').}
 
-  @defmapping['formals srcloc-as-list?]{The location of the formal
+  @defmapping['formals srcloc-as-list/c]{The location of the formal
   parameters. What this means varies among the forms. The idea is that
   this is a good span to @italic{replace} with the actual arguments
   when @racket['call] is true. Note that this can be an empty span,
@@ -650,11 +631,16 @@ with at least the following mappings:
   it is probably best simply to highlight the text at the
   @racket['header] location to indicate the call.}
 
-  @defmapping['header srcloc-as-list?]{The location of the header.
+  @defmapping['header srcloc-as-list/c]{The location of the header.
   What this means varies among the forms. It is often a super-span of
   the @racket['formals] mapping. The idea is that the @racket['header]
   is a good span @italic{after which} to show the @racket['message]
-  results when @racket['call] is false.}]
+  results when @racket['call] is false.}
+
+  @defmapping['caller (or/c #f srcloc-as-list/c)]{The location of the
+  directly calling function --- if this information is available from
+  the use of @racketmodname[vestige/app] in module defining the
+  calling function.}]
 
 See also the high level @racket[add-presentation-sites].}
 

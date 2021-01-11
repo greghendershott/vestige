@@ -1,9 +1,18 @@
 #lang racket/base
 
-(require racket/format
+(require racket/contract/base
+         racket/format
          racket/match)
 
-(provide ->srcloc-as-list)
+(provide ->srcloc-as-list
+         srcloc-as-list/c)
+
+(define srcloc-as-list/c
+  (list/c (or/c #f (and/c string? path-string?))
+          (or/c #f exact-positive-integer?)
+          (or/c #f exact-nonnegative-integer?)
+          (or/c #f exact-positive-integer?)
+          (or/c #f exact-nonnegative-integer?)))
 
 (define (->srcloc-as-list v)
   (match v
