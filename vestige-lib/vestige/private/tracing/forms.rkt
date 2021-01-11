@@ -115,7 +115,7 @@
                         (do-trace-lambda #:name name
                                          #:formals (param ...)
                                          #:formals-stx-for-srcloc bindings
-                                         #:header-stxs-for-srcloc [id bindings]
+                                         #:header-stxs-for-srcloc [name bindings]
                                          body ...))])
        #,(syntax/loc #'name ;good srcloc for initial call
            (vestige-#%app name init ...))))]
