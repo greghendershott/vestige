@@ -32,3 +32,8 @@ check-deps:
 # Suitable for both day-to-day dev and CI
 test:
 	raco test -x -p $(PACKAGE-NAMES)
+	raco test vestige-lib/vestige/example/example.rkt >/dev/null
+# Note: example.rkt doesn't have rackunit tests. In fact it's
+# included in `test-omit-paths` in vestige-lib/info.rkt because it has
+# very noisy output. But it's a good smoke test to run it and make
+# sure it doesn't raise any exceptions. So that's an extra step here.
