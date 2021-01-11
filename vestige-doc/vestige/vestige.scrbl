@@ -40,73 +40,23 @@
 
 @title{Vestige}
 
+@margin-note{Because ``trace'' is already used so much ---
+@hyperlink["https://pkgs.racket-lang.org/package/trace"]{trace},
+@hyperlink["https://pkgs.racket-lang.org/package/errortrace-lib"]{errortrace},
+@racketmodname[racket/trace] --- this package is named after a
+synonym, ``vestige''.}
+
 This package enhances logging generally, and, treats tracing as a
-particular kind of logging.
+special case of logging.
 
 @table-of-contents[]
 
+
+@;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 @section{Tracing}
 
-@margin-note{Because ``trace'' is already used by the
-@hyperlink["https://pkgs.racket-lang.org/package/trace"]{trace} and
-@hyperlink["https://pkgs.racket-lang.org/package/errortrace-lib"]{errortrace}
-packages, as well as @racketmodname[racket/trace], this package is
-named after a synonym, ``vestige''.}
-
-The @racketmodname[vestige/tracing] modules capture information about
-function calls and results.
-
-The information is supplied using structured logging.
-
-Intended uses include both ``debugging'' and ``devops''.
-
-Intended benefits include minimizing cross-cutting concerns.
-
-
-@subsection{What it does differently from @racketmodname[racket/trace]}
-
-The @racketmodname[vestige/tracing] module mimics some of the forms of
-@racketmodname[racket/trace] such as @racket[trace-define] and adds
-forms such as @racket[trace-case-lambda]. Furthermore, the
-@racketmodname[vestige/tracing/class] module adds tracing flavors of
-@racketmodname[racket/class] method definitions.
-
-Although the basic technique used to capture calls, results, and
-levels is similar to that used in @racketmodname[racket/trace],
-additional information is captured and its disposition is different:
-
-@itemlist[
-
- @item{Instrumentation happens upon definition; there is no mutating
- @|trace-id| or @|untrace-id|.}
-
- @item{Information is captured in @tech/ref{continuation marks} and
- emitted as @tech/ref{logger} events.}
-
- @item{As well as the arguments, results, and call depth captured by
- @racketmodname[racket/trace], more information is captured:
-
- @itemlist[
-
-  @item{Timing and thread information is captured eagerly using
-  @racket[with-more-logging-info].}
-
-  @item{@racket[srcloc] for various interesting things, when
-  available:
-
-   @itemlist[
-
-    @item{The @emph{definition} of the function being called.}
-
-    @item{The @emph{header} and @emph{formals} spans within the
-    definition. Tools can use this to present logs in a UI resembling
-    a step debugger.}
-
-    @item{Other srcloc information captured by
-    @racketmodname[vestige/logging] like the context.}]}]}]
-
-
-@subsection{Instrumenting specific functions}
+@subsection{Specific functions}
 
 @defmodule[vestige/tracing]
 
@@ -145,7 +95,7 @@ subsequnt calls have distinct source locations.
 The second form defers to plain @racket[let].}
 
 
-@subsection{Instrumenting all functions defined in a module}
+@subsection{All functions defined in a module}
 
 @defmodule[vestige/tracing/implicit]
 
@@ -162,7 +112,7 @@ convenient way to trace everything in a module without otherwise
 needing to litter its source with individual changes.
 
 
-@subsection{Instrumenting caller sites}
+@subsection{Caller sites}
 
 @defmodule[vestige/app]
 
@@ -182,7 +132,7 @@ Using this is optional. Although it enhances tracing by enabling
 caller sites to be reported, it imposes some runtime overhead.}
 
 
-@subsection{Instrumenting specific @racketmodname[racket/class] method definitions}
+@subsection{Specific @racketmodname[racket/class] method definitions}
 
 @defmodule[vestige/tracing/class]
 
@@ -221,7 +171,7 @@ variants of the method definitions forms:
              (trace-define/augment-final (head args) body ...+))] )]{}
 
 
-@subsection{Instrumenting all @racketmodname[racket/class] methods defined in a module}
+@subsection{All @racketmodname[racket/class] methods defined in a module}
 
 @defmodule[vestige/tracing/class/implicit]
 
@@ -232,54 +182,6 @@ substitutes the same forms as does
 @racketfont{trace-} prefix. For example @racketfont{define/private} is
 actually @racket[trace-define/private].
 
-
-@subsection{Two main use cases: ``debugging'' and ``devops''}
-
-Structured tracing logs can be used in two main ways:
-
-@itemlist[
-
- @item{As a debugging technique, this approach is sometimes the ``warm
- bowl of porridge'' between simple @racket[print]s and a full
- step-debugger.
-
- Manual @racket[print]s or @racket[log-debug]s tend to litter code,
- aren't so ``simple'' by the time you format various values and
- information, and the resulting output messages aren't always easy to
- correlate with their producing source.
-
- At the other extreme, full step-debugging can be ``heavy'', as a
- result of a special evaluator needing to rewrite your program into a
- ``step-debuggable'' program.
-
- The warm porridge: You can @racket[(require
- vestige/tracing/implicit)] to instrument everything in a module. Or
- if even that is too ``heavy'', you can @racket[(require
- vestige/tracing)] and instrument select items by replacing e.g.
- ``define'' with ``trace-define'' --- but not otherwise changing the
- source. As a rough analogy, this is like using Racket
- @racketmodname[racket/contract] or @racketmodname[syntax/parse]:
- Although you do change the source, the change is minimal and feels
- more @italic{*waves hands*} ``declarative''.
-
- Then, for example, a tool such as
- @hyperlink["https://racket-mode.com"]{Racket Mode} can use the
- structured logs to provide a better experience --- such as navigating
- the ``tree'' of calls, jumping to a call site or function definition
- site, filtering items by thread, and so on. It can even show function
- call arguments @italic{in situ}, starting to resemble @italic{*waves
- hands*} a low-granularity ``time travel debugger''.}
-
- @item{As a devops technique, logging certain function calls is often
- something you want to do for a long-running server. But again, this
- is a cross-cutting concern; it can be tedious and distracting to
- litter code with such logging.
-
- You can minimize that with this package, as described in the previous
- bullet point. Furthermore, your program can use a @tech/ref{log
- receiver} to forward the information to logging systems that support
- a richer format than plain text, for example the JSON option of
- Amazon CloudWatch Logs.}]
 
 @;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -353,15 +255,13 @@ Effectively a composition of @racket[with-more-logging-info] and a
  @defthing[vestige-level log-level/c]
 )]{
 
-The topic and level used for logging events.
+The topic and level used for logger events emitted by
+@racketmodname[vestige/tracing],
+@racketmodname[vestige/tracing/class], and @racket[log-expression].
 
-You may need these values when making a log receiver and want to be
-sure to receive logger events emitted by
-@racketmodname[vestige/tracing] as well as by @racket[log-expression].
-See @secref["receiver-example"].}
+To receive those events you will need to supply these topic and level
+values when making a log receiver. See @secref["receiver-example"].}
 
-
-@subsection{Event vectors}
 
 @subsubsection{High level}
 
@@ -373,9 +273,13 @@ See @secref["receiver-example"].}
 
 Extracts information from a @tech/ref{log receiver} event vector.
 
+When the vector's @racket[_data] member is a continuation mark set,
+retrieves mark values set by various tracing and logging
+instrumentation.
+
 When @racket[cms->tracing-data] produces a hasheq with a
 @racket['message] mapping, substitutes that value for the original
-message in the event vector (which is formatted for plain old log
+message from the event vector (which is formatted for plain old log
 receivers).
 
 Effectively this is a convenience function you could write yourself:
@@ -400,12 +304,13 @@ Effectively this is a convenience function you could write yourself:
              'depth   0)]))
 ]
 
-Although most values are primitives like strings and numbers, some may
-be ``live'' values such as thread descriptors. This is intentional, so
-that your log receiver can use them to obtain additional information
-if desired. On the other hand it means you will need to apply
-@racket[serializable-hasheq] to this hash-table before giving it-table
-to a function such as @racket[jsexpr->string].}
+Although most values in the main and child hash-tables are primitives
+like strings and numbers, some may be ``live'' values such as thread
+descriptors. This is intentional, so that your log receiver can use
+them to obtain additional information if desired. On the other hand it
+means you will need to apply @racket[serializable-hasheq] to this
+hash-table before giving it to a function such as
+@racket[jsexpr->string].}
 
 @defproc[(add-presentation-sites [ht (and/c hash? hash-eq? immutable?)])
          (and/c hash? hash-eq? immutable?)]{
@@ -673,46 +578,14 @@ serialize/marshal using most other formats.}
              #:preserve-source-locations
              pre-content ...))
 
-@(define-syntax-rule (ex/show #:example-require ?example-require
-                              ?pre-content ...)
-   (begin
-     ?example-require
-     (list
-      (examples #:no-result
-                #:preserve-source-locations
-                ?example-require
-                ?pre-content ...)
-      (verbatim
-       (let ([out (open-output-string)])
-         (local-require racket/logging
-                        racket/pretty
-                        vestige/receiving)
-         (with-intercepted-logging
-           (λ (v)
-             (newline out)
-             (pretty-print (for/fold ([ht (log-receiver-vector->hasheq v)])
-                                     ([k  (in-list '(info context))])
-                             (hash-remove ht k))
-                           out
-                           1))
-           (λ () ?pre-content ...)
-           vestige-level vestige-topic
-           'info         'example
-           'fatal        #f)
-         (get-output-string out))))))
-
-
 @subsection{Example: Tracing}
 
-Here is a small example program. Below it is an example of the
-resulting structured logging data, as produced by
-@racket[log-receiver-vector->hasheq] (but with some mappings removed
-to make the output less overwhelming):
+Here is a small example program:
 
-@ex/show[
-#:example-require (require vestige/app
-                           vestige/tracing
-                           vestige/logging)
+@examples[#:no-result
+(require vestige/app
+         vestige/tracing
+         vestige/logging)
 
 (define-logger example)
 
@@ -731,6 +604,48 @@ to make the output less overwhelming):
 
 (log-expression (* 2 3))
 ]
+
+Here is the resulting structured logging data, as produced by
+@racket[log-receiver-vector->hasheq] (but with some mappings removed
+to make the output less overwhelming):
+
+@(require racket/logging
+          racket/pretty
+          vestige/receiving
+          vestige/app
+          vestige/tracing
+          vestige/logging)
+@(verbatim
+   (let ([out (open-output-string)])
+     (with-intercepted-logging
+       (λ (v)
+         (newline out)
+         (pretty-print (for/fold ([ht (log-receiver-vector->hasheq v)])
+                                 ([k  (in-list '(info context))])
+                         (hash-remove ht k))
+                       out
+                       1))
+       (λ ()
+         (define-logger example)
+
+         (log-example-info "I am outside, my depth is 0")
+
+         (trace-define (f x)
+           (log-example-info "I am automatically under the depth of `f`: 2.")
+           (with-more-logging-depth
+             (log-example-info "I am one deeper: 3."))
+           (+ 1 x))
+
+         (trace-define (g x)
+           (+ 1 (f x)))
+
+         (g 42)
+
+         (log-expression (* 2 3)))
+       vestige-level vestige-topic
+       'info         'example
+       'fatal        #f)
+     (get-output-string out)))
 
 The @racket[trace-define] forms cause loger events for function calls
 and results, with extra information under the @racket['tracing] key.
@@ -779,9 +694,11 @@ receiver} thread somewhat like this:
 ]
 
 We ask @racket[make-log-receiver] to accept events from vestige's
-level and topic and from the @racket['info] level of the
-@racket['example] topic since our example used @racket[(define-logger
-example)].
+level and topic, as well as from the @racket['info] level of the
+@racket['example] topic (since our example used @racket[(define-logger
+example)] and @racket[log-example-info]). Finally, we only want to see
+@racket['fatal] level events for all other topics (which effectively
+means we'll see almost nothing).
 
 
 @subsection{Using @racket[with-intercepted-logging] and JSON}
@@ -796,7 +713,7 @@ Furthermore it shows using @racket[serializable-hasheq] and
 @racket[jsexpr->string] to convert the hash-table to its JSON string
 representation.
 
-@ex[
+@examples[#:no-prompt #:preserve-source-locations
 (code:comment "The code being instrumented")
 (module ex racket/base
   (require vestige/tracing)
@@ -821,3 +738,108 @@ representation.
 Instead of @racket[displayln], this code could give the JSON string to
 a function that sends it to AWS CloudWatch Logs or a similar
 structured logging service.
+
+
+@;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+@section{Discussion}
+
+
+@subsection{Comparison with @racketmodname[racket/trace]}
+
+The @racketmodname[vestige/tracing] module mimics some of the forms of
+@racketmodname[racket/trace] such as @racket[trace-define], and adds a
+@racket[trace-case-lambda].
+
+Furthermore the @racketmodname[vestige/tracing/class] module adds
+tracing flavors of @racketmodname[racket/class] method definitions.
+
+More information is captured, and, its disposition is different:
+
+@itemlist[
+
+ @item{Instrumentation happens upon definition; there is no mutating
+ @|trace-id| or @|untrace-id|.}
+
+ @item{Information is emitted as @tech/ref{logger} events.}
+
+ @item{Call depth is tracked through a continuation mark also used by
+ @racket[with-more-logging-depth].}
+
+ @item{As well as the arguments, results, and call depth reported by
+ @racketmodname[racket/trace], more information is captured:
+
+ @itemlist[
+
+  @item{Timing and thread information is captured eagerly using
+  @racket[with-more-logging-info].}
+
+  @item{@racket[srcloc] for various interesting things, when
+  available:
+
+   @itemlist[
+
+    @item{The @emph{definition} of the function being called.}
+
+    @item{The @emph{header} and @emph{formals} spans within the
+    definition. Tools can use this to present logs in a UI resembling
+    a step debugger.}
+
+    @item{Other srcloc information captured by
+    @racketmodname[vestige/logging] like the context.}]}]}]
+
+
+
+@subsection{Two main use cases: ``debugging'' and ``devops''}
+
+Structured tracing logs can be used in two main ways:
+
+@itemlist[
+
+ @item{As a debugging technique, this approach is sometimes the ``warm
+ bowl of porridge'' between simple @racket[print]s and a full
+ step-debugger.
+
+ @itemlist[
+
+  @item{Manual @racket[print]s or @racket[log-debug]s tend to litter
+  code, aren't so ``simple'' by the time you format various values and
+  information, and the resulting output messages aren't always easy to
+  correlate with their producing source.}
+
+  @item{At the other extreme, full step-debugging can be ``heavy'', as
+  a result of a special evaluator needing to rewrite your program into
+  a ``step-debuggable'' program.}
+
+  @item{The (possibly) warm porridge: You can @racket[(require
+  vestige/tracing/implicit)] to instrument all functions defined in a
+  module -- but not otherwise changing the source.
+
+  Or if that is too ``heavy'', you can @racket[(require
+  vestige/tracing)] and instrument select items by replacing e.g.
+  ``define'' with ``trace-define'' --- but not otherwise changing the
+  source.
+
+  As a rough analogy, this is like using Racket
+  @racketmodname[racket/contract] or @racketmodname[syntax/parse]:
+  Although you do change the source, the change is minimal and feels
+  more @italic{*waves hands*} ``declarative''.
+
+  Then, for example, a tool such as
+  @hyperlink["https://racket-mode.com"]{Racket Mode} can use the
+  structured logs to provide a better experience --- such as
+  navigating the ``tree'' of calls, jumping to a call site or function
+  definition site, filtering items by thread, and so on. It can even
+  show function call arguments @italic{in situ}, starting to resemble
+  @italic{*waves hands*} a low-granularity ``time travel debugger''.}]}
+
+ @item{As a devops technique, logging certain function calls is often
+ something you want to do for a long-running server. But again, this
+ is a cross-cutting concern; it can be tedious and distracting to
+ litter code with such logging.
+
+ You can minimize that with this package, as described in the previous
+ bullet point. Furthermore, your program can use a @tech/ref{log
+ receiver} to forward the information to logging systems that support
+ a richer format than plain text, for example the JSON option of
+ Amazon CloudWatch Logs.}]
