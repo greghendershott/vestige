@@ -103,7 +103,7 @@ additional information is captured and its disposition is different:
     a step debugger.}
 
     @item{Other srcloc information captured by
-    @racketmodname[vestige/logging] like the context and caller.}]}]}]
+    @racketmodname[vestige/logging] like the context.}]}]}]
 
 
 @subsection{Instrumenting specific functions}
