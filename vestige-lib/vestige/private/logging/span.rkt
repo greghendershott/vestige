@@ -1,7 +1,7 @@
 #lang racket/base
 
 (require racket/format
-         "information.rkt"
+         "data.rkt"
          "depth.rkt"
          "log.rkt")
 
@@ -22,7 +22,7 @@
     (pre)
     (begin0 (val)
       (post)))
-  (with-more-logging-info
+  (with-more-logging-data
     (with-more-logging-depth
       ((if wind? dynamic-wind not-wind)
        pre-thunk value-thunk post-thunk))))

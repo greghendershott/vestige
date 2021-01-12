@@ -8,7 +8,7 @@
          "private/logging/srcloc.rkt"
          "private/logging/context.rkt"
          "private/logging/depth.rkt"
-         "private/logging/information.rkt"
+         "private/logging/data.rkt"
          "private/tracing/logging.rkt")
 
 (provide log-receiver-vector->hasheq
@@ -19,7 +19,7 @@
          ;; Low level instead of using vector->hasheq
          srcloc-as-list/c
          cms->logging-depth
-         cms->logging-info
+         cms->logging-data
          cms->context-srcloc
          cms->tracing-data
          performance-vectors->hasheq)
@@ -35,7 +35,7 @@
              'level   level
              'depth   (cms->logging-depth cms)
              'context (cms->context-srcloc cms)
-             'info    (cms->logging-info cms)
+             'data    (cms->logging-data cms)
              'tracing tracing)]
     [(vector level message _unknown-data topic)
      (hasheq 'message message
@@ -44,7 +44,7 @@
              'depth   0)]))
 
 ;; Sorts through the various cases of collected data from tracing or
-;; with-more-loging-info, to add primary-site and secondary-site
+;; with-more-loging-data, to add primary-site and secondary-site
 ;; mappings. i.e. When the user wants to see sites associated with a
 ;; logging event, here is a recommendation what to show, where, and
 ;; how.
@@ -112,17 +112,17 @@
                    (list 'after file pos (+ pos span) msg)]
                   [_ #f]))))]
     [_ #f]))
-  (define (add-info ht)
+  (define (add-data ht)
      ;; Non-tracing logging that has srcloc arising from
-     ;; with-more-logging-info, has that as its primary site. There is
+     ;; with-more-logging-data, has that as its primary site. There is
      ;; no secondary site.
-     (match (hash-ref ht 'info #f)
+     (match (hash-ref ht 'data #f)
        [(hash-table ['srcloc (list file _line _col pos span)])
         (add #:primary   (list 'highlight file pos (+ pos span))
              #:secondary #f)]
        [_ #f]))
   (or (add-tracing ht) ;most specific, try first
-      (add-info ht)
+      (add-data ht)
       ;; Otherwise, nothing actionable wrt showing sites. A tool could
       ;; should show context srcloc, but: 1. That's a stand-alone
       ;; property that either is present or not -- there is no

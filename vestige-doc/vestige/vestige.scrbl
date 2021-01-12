@@ -222,7 +222,7 @@ even more.
 
 See also @racket[cms->logging-depth].}
 
-@defform[(with-more-logging-info result-expr)]{Eagerly captures
+@defform[(with-more-logging-data result-expr)]{Eagerly captures
 information like @racket[current-inexact-milliseconds] and
 @racket[current-thread] in a continuation mark. Capturing such
 information eagerly matters because logger events are received later
@@ -231,13 +231,13 @@ and in a different thread.
 Also records the srcloc for the form, enabling a tool to show the
 source of logging within the dynamic extent of this form..
 
-See also @racket[cms->logging-info].}
+See also @racket[cms->logging-data].}
 
 @defform[(log-expression expr)]{Emits a logger event whose message
 shows the quoted form of @racket[expr] and its result. The result of
 @racket[expr] is the result of the @racket[log-expression] form.
 
-Effectively a composition of @racket[with-more-logging-info] and a
+Effectively a composition of @racket[with-more-logging-data] and a
 @racket[log-message] using @racket[vestige-topic] and
 @racket[vestige-level].}
 
@@ -295,7 +295,7 @@ Effectively this is a convenience function you could write yourself:
              'level   level
              'depth   (cms->logging-depth cms)
              'context (cms->context-srcloc cms)
-             'info    (cms->logging-info cms)
+             'data    (cms->logging-data cms)
              'tracing tracing)]
     [(vector level message _unknown-data topic)
      (hasheq 'message message
@@ -340,8 +340,8 @@ this.
   @racket[#f]).
 
   When the logging event originated in the dynamic extent of
-  @racket[with-more-logging-info]: The primary site is the location of
-  the @racket[with-more-logging-info] form. The secondary site is
+  @racket[with-more-logging-data]: The primary site is the location of
+  the @racket[with-more-logging-data] form. The secondary site is
   @racket[#f].
 
   Otherwise, both values will be @racket[#f].}
@@ -430,20 +430,20 @@ Returns the first non-false srcloc value, if any, from
 @racket[continuation-mark-set->context] whose source is
 @racket[complete-path?].}
 
-@defproc[(cms->logging-info [cms continuation-mark-set?])
+@defproc[(cms->logging-data [cms continuation-mark-set?])
          (or/c #f (and/c hash? hash-eq? immutable?))]{
 
 When a logger event is emitted in the dynamic extent of
-@racket[with-more-logging-info] a mark can be retrieved by this
+@racket[with-more-logging-data] a mark can be retrieved by this
 function. The value is a @racket[hasheq] with at least the following
 mappings:
 
 @nested[#:style 'inset
 
   @defmapping['srcloc (or/c #f srcloc-as-list/c)]{The source location
-  of the @racket[with-more-logging-info] form.
+  of the @racket[with-more-logging-data] form.
 
-  Note: Internal uses of @racket[with-more-logging-info] by
+  Note: Internal uses of @racket[with-more-logging-data] by
   @racketmodname[vestige/tracing] forms set this value false, because
   the internal location is not relevant --- instead
   @racket[cms->tracing-data] supplies the interesting srclocs.
@@ -478,7 +478,7 @@ mappings:
 
 Given global and per-thread vectors from
 @racket[vector-set-performance-stats!] or from
-@racket[cms->logging-info], return a hasheq representation.}
+@racket[cms->logging-data], return a hasheq representation.}
 
 @defproc[(cms->tracing-data [cms continuation-mark-set?])
          (or/c #f (and/c hash? hash-eq? immutable?))]{
@@ -554,7 +554,7 @@ See also the high level @racket[add-presentation-sites].}
 @defproc[(serializable-hasheq [h hash-eq?]) (and/c jsexpr? hash-eq? immutable?)]{
 
 Given a hash-table --- such as one from
-@racket[log-receiver-vector->hasheq], @racket[cms->logging-info], or
+@racket[log-receiver-vector->hasheq], @racket[cms->logging-data], or
 @racket[cms->tracing-data] --- returns one coerced to satisfy
 @racket[jsexpr?].
 
@@ -772,7 +772,7 @@ More information is captured, and, its disposition is different:
  @itemlist[
 
   @item{Timing and thread information is captured eagerly using
-  @racket[with-more-logging-info].}
+  @racket[with-more-logging-data].}
 
   @item{@racket[srcloc] for various interesting things, when
   available:

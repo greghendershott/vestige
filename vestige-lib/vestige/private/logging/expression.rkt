@@ -5,7 +5,7 @@
          racket/match
          syntax/parse/define
          (only-in "log.rkt" log? log!)
-         "information.rkt")
+         "data.rkt")
 
 (provide log-expression)
 
@@ -19,7 +19,7 @@
                        (log! (fmt 'e vs)))
                      (apply values vs))))
    (syntax/loc this-syntax
-     (with-more-logging-info
+     (with-more-logging-data
        new-e))])
 
 (define (fmt quoted-expr vs)

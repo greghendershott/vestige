@@ -3,8 +3,8 @@
 (require "private/logging/depth.rkt")
 (provide with-more-logging-depth)
 
-(require "private/logging/information.rkt")
-(provide with-more-logging-info
+(require "private/logging/data.rkt")
+(provide with-more-logging-data
          performance-vectors->hasheq)
 
 (require "private/logging/expression.rkt")

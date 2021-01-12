@@ -5,7 +5,7 @@
          racket/string
          syntax/parse/define
          "../logging/log.rkt"
-         "../logging/information.rkt")
+         "../logging/data.rkt")
 
 (provide log-args
          log-results
@@ -51,7 +51,7 @@
                                         caller-srcloc
                                         formals-srcloc header-srcloc
                                         args-from args-upto)
-    (with-more-logging-info #:srcloc? #f
+    (with-more-logging-data #:srcloc? #f
       (log! (~a (make-string depth #\>) " " message)))))
 
 (define-simple-macro (log-results e:expr ...)
@@ -68,7 +68,7 @@
   (with-tracing-mark (make-tracing-data #f #f name results-str
                                         caller-srcloc
                                         formals-srcloc header-srcloc)
-    (with-more-logging-info #:srcloc? #f
+    (with-more-logging-data #:srcloc? #f
       (log! (~a (make-string depth #\<) " " results-str)))))
 
 (define (make-tracing-data call? tail? name message

@@ -4,20 +4,20 @@
                      "srcloc.rkt")
          syntax/parse/define)
 
-(provide cms->logging-info
-         with-more-logging-info
+(provide cms->logging-data
+         with-more-logging-data
          performance-vectors->hasheq)
 
 ;; Information like timing and thread that is relevant for simple
 ;; message logging as well as tracing.
 
 ;; Intentionally not using make-continuation-mark-key.
-(define key 'vestige-logging-info-continuation-mark-key)
+(define key 'vestige-logging-data-continuation-mark-key)
 
-(define (cms->logging-info cms)
+(define (cms->logging-data cms)
   (continuation-mark-set-first cms key))
 
-(define-syntax-parser with-more-logging-info
+(define-syntax-parser with-more-logging-data
   [(_
     (~optional (~seq #:srcloc? srcloc?)
                #:defaults ([srcloc? #'#t]))

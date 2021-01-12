@@ -17,14 +17,14 @@
            vestige/app
            vestige/logging)
   (define-logger example)
-  (log-example-info "not in any with-more-logging-info form")
-  (with-more-logging-info (log-example-info "outside any traced function"))
+  (log-example-info "not in any with-more-logging-data form")
+  (with-more-logging-data (log-example-info "outside any traced function"))
   (trace-define (baz x) x)
   (trace-define (foo x)
-    (log-example-info "inside foo but not in any with-more-logging-info form")
-    (with-more-logging-info (log-example-info "inside"))
+    (log-example-info "inside foo but not in any with-more-logging-data form")
+    (with-more-logging-data (log-example-info "inside"))
     (with-more-logging-depth
-      (with-more-logging-info (log-example-info "inside, nested")))
+      (with-more-logging-data (log-example-info "inside, nested")))
     (baz x)
     (trace-let loop ([x 4])
       (if (zero? x) (baz x) (loop (sub1 x)))))
@@ -35,7 +35,7 @@
   (trace-define (rest-arg . args) args)
   (rest-arg 0 1 2)
   (define alice (trace-lambda (x) x))
-  (with-more-logging-info
+  (with-more-logging-data
     (log-example-info "Stats"))
   (alice 34))
 (require 'explicit-example)
