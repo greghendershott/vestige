@@ -1,6 +1,7 @@
 #lang racket/base
 
 (require (for-syntax racket/base
+                     racket/match
                      (only-in racket/syntax format-id)
                      syntax/parse/lib/function-header
                      "infer-name.rkt" ;not syntax/name
@@ -89,23 +90,31 @@
             [else (apply raise-arity-error 'name '(clause.count ...) args)])))]))
 
 (define-syntax-parser trace-define
-  [(_ header:function-header body:expr ...+)
-   #`(define header.name
-       #,(let produce-lambda ([header #'header])
-           (syntax-parse header
-             [(name:id . fmls:formals)
-              (quasisyntax/loc this-syntax
-                (trace-lambda #:name name
-                              fmls
-                              body ...))]
-             [(more . fmls:formals)
-              #:with name #'header.name
-              (quasisyntax/loc #'fmls
-                (trace-lambda #:name name
-                              fmls
-                              #,(produce-lambda #'more)))])))]
   [(_ id:id expr:expr)
-   (quasisyntax/loc this-syntax (define id expr))])
+   (quasisyntax/loc this-syntax (define id expr))]
+  [(_ header:function-header body:expr ...+)
+   ;; (define ((foo x) y) (list x y))
+   ;; =>
+   ;; (define foo (λ (x) (λ (y) (list x y))))
+   (define all-formals
+     (reverse
+      (let loop ([header #'header])
+        (syntax-parse header
+          [(_:id . fs:formals) (list #'fs)]
+          [(more . fs:formals) (cons #'fs (loop #'more))]))))
+   #`(define header.name
+       #,(let produce-lambda ([all-formals all-formals])
+           (match all-formals
+             [(list fmls)
+              (syntax-property
+               (quasisyntax/loc this-syntax
+                 (trace-lambda #,fmls body ...))
+               'inferred-name #'header.name)]
+             [(cons fmls more)
+              (syntax-property
+               (quasisyntax/loc this-syntax
+                 (trace-lambda #,fmls #,(produce-lambda more)))
+               'inferred-name #'header.name)])))])
 
 (define-syntax-parser trace-let
   ;; "Named let"
