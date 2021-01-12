@@ -647,7 +647,7 @@ to make the output less overwhelming):
        'fatal        #f)
      (get-output-string out)))
 
-The @racket[trace-define] forms cause loger events for function calls
+The @racket[trace-define] forms cause logger events for function calls
 and results, with extra information under the @racket['tracing] key.
 
 Also note the depths of the @racket[log-example-info] forms:
