@@ -73,7 +73,7 @@
                    ['definition definition]
                    ['formals    formals]
                    ['header     header]
-                   ['caller     (cons immediate? caller)])
+                   ['caller     (list immediate? caller)])
      ;; Tracing call or results. The primary site is the called site
      ;; i.e where the function is defined. The secondary site is the
      ;; caller site (if any such information is available).

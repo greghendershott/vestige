@@ -542,8 +542,11 @@ with at least the following mappings:
   is a good span @italic{after which} to show the @racket['message]
   results when @racket['call] is false.}
 
-  @defmapping['caller (or/c #f srcloc-as-list/c)]{The location of the
-  directly calling function --- if this information is available from
+  @defmapping['caller (or/c (list/c boolean? srcloc-as-list/c)
+                            (list/c #f #f))]{
+
+  Whether the caller is the immediate caller of the traced function,
+  and the caller's srcloc --- if this information is available from
   the use of @racketmodname[vestige/app] in module defining the
   calling function.}]
 

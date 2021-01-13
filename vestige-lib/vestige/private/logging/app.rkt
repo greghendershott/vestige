@@ -19,5 +19,9 @@
        (with-continuation-mark key (list proc #,@(->srcloc-as-list this-syntax))
          (#%app proc-expr more ...))))])
 
-(define (cms->caller cms)
-  (continuation-mark-set-first cms key))
+(define (cms->caller cms proc)
+  (match (continuation-mark-set-first cms key)
+    [(cons actual-proc (? srcloc-as-list/c srcloc))
+     (define immediate? (equal? actual-proc proc))
+     (list immediate? srcloc)]
+    [_ (list #f #f)]))
