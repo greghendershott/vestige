@@ -22,6 +22,6 @@
 (define (cms->caller cms proc)
   (match (continuation-mark-set-first cms key)
     [(cons actual-proc (? srcloc-as-list/c srcloc))
-     (define immediate? (equal? actual-proc proc))
-     (list immediate? srcloc)]
-    [_ (list #f #f)]))
+     (hasheq 'immediate (equal? actual-proc proc)
+             'srcloc    srcloc)]
+    [_ #f]))

@@ -75,10 +75,17 @@
           ['message    message]
           ['args-from  args-from]
           ['args-upto  args-upto]
-          ['definition definition]
-          ['formals    formals]
-          ['header     header]
-          ['caller     (list immediate? caller)])])
+          ['caller
+           (or (hash-table ['immediate immediate?]
+                           ['srcloc    caller-srcloc])
+               (app (λ _ (list #f #f)) (list immediate?
+                                             caller-srcloc)))]
+          ['called
+           (hash-table
+            ['file       file]
+            ['definition definition]
+            ['formals    formals]
+            ['header     header])])])
        ;; Tracing call or results. The primary site is the called site
        ;; i.e where the function is defined. The secondary site is the
        ;; caller site (if any such information is available).
@@ -86,7 +93,7 @@
          [call?
           (define primary
             (match formals
-              [(list file _line _col pos span)
+              [(list _line _col pos span)
                (cond
                  ;; Empty formals span (thunk); no actual args
                  ;; and anyway no place to show them: Instead
@@ -94,8 +101,8 @@
                  ;; text.
                  [(or (zero? span)
                       (equal? args-from args-upto))
-                  (match-let ([(list file _line _col pos span) header])
-                    (list 'highlight file pos (+ pos span)))]
+                  (match-define (list _line _col pos span) header)
+                  (list 'highlight file pos (+ pos span))]
                  ;; Non-empty formals span: replace the text at
                  ;; formals location with the actual arguments.
                  ;; These are a substring of the message.
@@ -103,7 +110,7 @@
                   (list 'replace file pos (+ pos span)
                         (substring message args-from args-upto))])]))
           (define secondary
-            (match caller
+            (match caller-srcloc
               [(list file _line _col pos span)
                (define beg pos)
                (define end (+ pos span))
@@ -127,14 +134,14 @@
          [else
           (define msg (string-append "⇒ " message))
           (define primary
-            (match definition ;header
-              [(list file _line _col pos span)
+            (match definition
+              [(list _line _col pos span)
                (list 'after file pos (+ pos span) msg)]
               [_ #f]))
           ;; Only caller site if it /directly/ called traced function.
           (define secondary
             (and immediate?
-                 (match caller
+                 (match caller-srcloc
                    [(list file _line _col pos span)
                     (list 'after file pos (+ pos span) msg)]
                    [_ #f])))

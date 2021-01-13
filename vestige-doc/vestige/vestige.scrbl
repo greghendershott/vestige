@@ -499,10 +499,7 @@ with at least the following mappings:
 
   Note that function return results are not logged for tail calls.}
 
-  @defmapping['name string?]{The name of the function.}
-
-  @defmapping['identifier srcloc-as-list/c]{The location of the
-  identifier naming the function defintion.}
+  @defmapping['name symbol?]{The name of the function.}
 
   @defmapping['message string?]{When @racket['call] is true, the
   function name with the arguments in parentheses.
@@ -528,33 +525,55 @@ with at least the following mappings:
   may be equal (indicating an empty string) when a function has no
   formal parameters (a ``thunk'').}
 
-  @defmapping['formals srcloc-as-list/c]{The location of the formal
-  parameters. The idea is that this is a good span to @italic{replace}
-  with the actual arguments when @racket['call] is true. Note that
-  this can be an empty span, when a function has no formal parameters
-  (a ``thunk''); in that case it is probably best simply to highlight
-  the text at the @racket['header] location to indicate the call.}
+  @defmapping['called (and/c hash? hash-eq? immutable?)]{
 
-  @defmapping['header srcloc-as-list/c]{The location of the function
-  header. What this means varies among the forms, but is often a
-  super-span of the @racket['formals] mapping.}
+  Several source locations are available for the called/traced
+  function. Because they all share the same source file path string,
+  and furthermore path strings take the most space, these are
+  respresented as a hash-table stating the source file once, and each
+  of the locations as the @racket[cdr] of the
+  @racket[srcloc-as-list/c] (i.e. slicing off the first, file
+  element):
 
-  @defmapping['definition srcloc-as-list/c]{The location of the entire
-  function definition form. To show a function call result (when
-  @racket['call] is false) a good location is probably just after the
-  end of this span.}
+  @nested[#:style 'inset
 
-  @defmapping['caller (or/c (list/c boolean? srcloc-as-list/c)
-                            (list/c #f #f))]{
+    @defmapping['file (and/c string? path-string?)]{The source file.}
+
+    @defmapping['formals (cdr srcloc-as-list/c)]{The location of the
+    formal parameters. To show a function call, when @racket['call] is
+    true, this is usually a good span to @italic{replace} with the
+    actual arguments.
+
+    However note that this can be an empty span, when a function has
+    no formal parameters (a ``thunk''); in that case it is better
+    simply to highlight the text at the @racket['header] location
+    to indicate the call.}
+
+    @defmapping['header (cdr srcloc-as-list/c)]{The location of the
+    function header. What this means varies among the forms, but
+    consists of at least the formals including parentheses, as well as
+    the name if the form specifies one.}
+
+    @defmapping['definition (cdr srcloc-as-list/c)]{The location of
+    the entire function definition form. To show a function call
+    result, when @racket['call] is false, a good location is probably
+    just after the end of this span.}
+
+  ]}
+
+  @defmapping['caller (or/c #f (and/c hash? hash-eq? immutable?))]{
 
   When a traced function is called in the dynamic extent of a use of
-  @racketmodname[vestige/app] this mapping value is a list with two
-  items. The first says whether the call site was a call directly to
-  the traced function (in which case it could make sense to show the
-  traced function result also at the call site) or not. The second is
-  srcloc for the call site.
+  @racketmodname[vestige/app] returns a hash-table with at least the
+  following mappings.
 
-  Otherwise this value is @racket[(list #f #f)].}]
+  @nested[#:style 'inset
+
+    @defmapping['immediate boolean?]{Did the call site directly call
+    the traced function (in which case it could make sense to show the
+    traced function result also at the call site) or not.}
+
+    @defmapping['srcloc srcloc-as-list/c]{The caller site location.}]}]
 
 See also the high level @racket[add-presentation-sites].}
 

@@ -78,7 +78,18 @@
           'message    message
           'args-from  args-from
           'args-upto  args-upto
-          'definition defn-srcloc
-          'formals    formals-srcloc
-          'header     header-srcloc
+          'called     (consolidate-definition-srclocs defn-srcloc
+                                                      formals-srcloc
+                                                      header-srcloc)
           'caller     caller))
+
+;; The srcloc for all three of these should be the same file. If it's
+;; ever not, then that's a bug with the srcloc handling in forms.rkt.
+;; Supplying it thrice sucks especially because it takes by far the
+;; most space. So here we reshape the three srlocs into a little
+;; hash-table.
+(define (consolidate-definition-srclocs definition formals header)
+  (hasheq 'file       (car definition)
+          'definition (cdr definition)
+          'formals    (cdr formals)
+          'header     (cdr header)))
