@@ -529,26 +529,32 @@ with at least the following mappings:
   formal parameters (a ``thunk'').}
 
   @defmapping['formals srcloc-as-list/c]{The location of the formal
-  parameters. What this means varies among the forms. The idea is that
-  this is a good span to @italic{replace} with the actual arguments
-  when @racket['call] is true. Note that this can be an empty span,
-  when a function has no formal parameters (a ``thunk''); in that case
-  it is probably best simply to highlight the text at the
-  @racket['header] location to indicate the call.}
+  parameters. The idea is that this is a good span to @italic{replace}
+  with the actual arguments when @racket['call] is true. Note that
+  this can be an empty span, when a function has no formal parameters
+  (a ``thunk''); in that case it is probably best simply to highlight
+  the text at the @racket['header] location to indicate the call.}
 
-  @defmapping['header srcloc-as-list/c]{The location of the header.
-  What this means varies among the forms. It is often a super-span of
-  the @racket['formals] mapping. The idea is that the @racket['header]
-  is a good span @italic{after which} to show the @racket['message]
-  results when @racket['call] is false.}
+  @defmapping['header srcloc-as-list/c]{The location of the function
+  header. What this means varies among the forms, but is often a
+  super-span of the @racket['formals] mapping.}
+
+  @defmapping['definition srcloc-as-list/c]{The location of the entire
+  function definition form. To show a function call result (when
+  @racket['call] is false) a good location is probably just after the
+  end of this span.}
 
   @defmapping['caller (or/c (list/c boolean? srcloc-as-list/c)
                             (list/c #f #f))]{
 
-  Whether the caller is the immediate caller of the traced function,
-  and the caller's srcloc --- if this information is available from
-  the use of @racketmodname[vestige/app] in module defining the
-  calling function.}]
+  When a traced function is called in the dynamic extent of a use of
+  @racketmodname[vestige/app] this mapping value is a list with two
+  items. The first says whether the call site was a call directly to
+  the traced function (in which case it could make sense to show the
+  traced function result also at the call site) or not. The second is
+  srcloc for the call site.
+
+  Otherwise this value is @racket[(list #f #f)].}]
 
 See also the high level @racket[add-presentation-sites].}
 
