@@ -7,7 +7,8 @@
 
 (provide formals-srcloc
          header-srcloc
-         formals->positionals)
+         formals->positionals
+         ->srcloc-as-list)
 
 (module+ test
   (require rackunit

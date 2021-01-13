@@ -7,7 +7,7 @@
          "srcloc.rkt")
 
 (provide vestige-#%app
-         immediate-caller-srcloc)
+         cms->caller)
 
 ;; Intentionally not using make-continuation-mark-key.
 (define key 'vestige-app-srcloc-continuation-mark-key)
@@ -17,11 +17,7 @@
    (quasisyntax/loc this-syntax
      (let ([proc proc-expr])
        (with-continuation-mark key (list proc #,@(->srcloc-as-list this-syntax))
-         (#%app proc more ...))))])
+         (#%app proc-expr more ...))))])
 
-(define (immediate-caller-srcloc desired-calling-proc)
-  (match (continuation-mark-set-first (current-continuation-marks) key)
-    [(cons actual-calling-proc srcloc)
-     #:when (equal? actual-calling-proc desired-calling-proc)
-     (->srcloc-as-list srcloc)]
-    [_ #f]))
+(define (cms->caller cms)
+  (continuation-mark-set-first cms key))

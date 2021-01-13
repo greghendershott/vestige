@@ -28,7 +28,7 @@
     (do-log-args e ...)))
 
 (define (do-log-args name tail? args kws kw-vals depth
-                     caller-srcloc formals-srcloc header-srcloc positional-syms)
+                     caller defn-srcloc formals-srcloc header-srcloc positional-syms)
   (define args-str (string-join
                     (append (match positional-syms
                               [(? symbol? s)
@@ -48,8 +48,7 @@
   (define args-upto (+ args-from (string-length args-str)))
   (define message (~a prefix args-str suffix))
   (with-tracing-mark (make-tracing-data #t tail? name message
-                                        caller-srcloc
-                                        formals-srcloc header-srcloc
+                                        caller defn-srcloc formals-srcloc header-srcloc
                                         args-from args-upto)
     (with-more-logging-data #:srcloc? #f
       (log! (~a (make-string depth #\>) " " message)))))
@@ -59,28 +58,27 @@
     (do-log-results e ...)))
 
 (define (do-log-results name results depth
-                        caller-srcloc formals-srcloc header-srcloc)
+                        caller defn-srcloc formals-srcloc header-srcloc)
   (define results-str
     (~a (match results
           [(list)   "#<void>"]
           [(list v) (~v v)]
           [vs       (~s (cons 'values vs))])))
   (with-tracing-mark (make-tracing-data #f #f name results-str
-                                        caller-srcloc
-                                        formals-srcloc header-srcloc)
+                                        caller defn-srcloc formals-srcloc header-srcloc)
     (with-more-logging-data #:srcloc? #f
       (log! (~a (make-string depth #\<) " " results-str)))))
 
 (define (make-tracing-data call? tail? name message
-                           caller-srcloc
-                           formals-srcloc header-srcloc
+                           caller defn-srcloc formals-srcloc header-srcloc
                            [args-from #f] [args-upto #f])
-  (hasheq 'call          call?
-          'tail          tail?
-          'name          name
-          'message       message
-          'args-from     args-from
-          'args-upto     args-upto
-          'formals       formals-srcloc
-          'header        header-srcloc
-          'caller        caller-srcloc))
+  (hasheq 'call       call?
+          'tail       tail?
+          'name       name
+          'message    message
+          'args-from  args-from
+          'args-upto  args-upto
+          'definition defn-srcloc
+          'formals    formals-srcloc
+          'header     header-srcloc
+          'caller     caller))

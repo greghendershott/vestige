@@ -66,51 +66,69 @@
                'secondary-site secondary))
   (define (add-tracing ht)
     (match (hash-ref ht 'tracing #f)
-    [(hash-table ['call         call?]
-                 ['message      message]
-                 ['args-from    args-from]
-                 ['args-upto    args-upto]
-                 ['formals      formals]
-                 ['header       header]
-                 ['caller       caller])
+      [(hash-table ['call       call?]
+                   ['message    message]
+                   ['args-from  args-from]
+                   ['args-upto  args-upto]
+                   ['definition definition]
+                   ['formals    formals]
+                   ['header     header]
+                   ['caller     (cons immediate? caller)])
      ;; Tracing call or results. The primary site is the called site
      ;; i.e where the function is defined. The secondary site is the
      ;; caller site (if any such information is available).
      (if call?
-         (add #:primary
-              (match formals
-                [(list file _line _col pos span)
-                 (cond
-                   ;; Empty formals span (thunk); no actual args
-                   ;; and anyway no place to show them: Instead
-                   ;; highlight the header keeping its existing
-                   ;; text.
-                   [(or (zero? span)
-                        (equal? args-from args-upto))
-                    (match-let ([(list file _line _col pos span) header])
-                      (list 'highlight file pos (+ pos span)))]
-                   ;; Non-empty formals span: replace the text at
-                   ;; formals location with the actual arguments.
-                   ;; These are a substring of the message.
-                   [else
-                    (list 'replace file pos (+ pos span)
-                          (substring message args-from args-upto))])])
-              #:secondary
-              (match caller
-                [(list file _line _col pos span)
-                 (list 'replace file pos (+ pos span) message)]
-                [_ #f]))
-         (let ([msg (string-append "⇒ " message)])
-           (add #:primary
-                (match header
-                  [(list file _line _col pos span)
-                   (list 'after file pos (+ pos span) msg)]
-                  [_ #f])
-                #:secondary
-                (match caller
-                  [(list file _line _col pos span)
-                   (list 'after file pos (+ pos span) msg)]
-                  [_ #f]))))]
+         (let* ([primary
+                 (match formals
+                   [(list file _line _col pos span)
+                    (cond
+                      ;; Empty formals span (thunk); no actual args
+                      ;; and anyway no place to show them: Instead
+                      ;; highlight the header keeping its existing
+                      ;; text.
+                      [(or (zero? span)
+                           (equal? args-from args-upto))
+                       (match-let ([(list file _line _col pos span) header])
+                         (list 'highlight file pos (+ pos span)))]
+                      ;; Non-empty formals span: replace the text at
+                      ;; formals location with the actual arguments.
+                      ;; These are a substring of the message.
+                      [else
+                       (list 'replace file pos (+ pos span)
+                             (substring message args-from args-upto))])])]
+                [secondary
+                 (match caller
+                   [(list file _line _col pos span)
+                    (define beg pos)
+                    (define end (+ pos span))
+                    ;; Only show secondary if it does not intersect
+                    ;; primary.
+                    (match primary
+                      [(list 'replace primary-file primary-beg primary-end _str)
+                       #:when (and (equal? file primary-file)
+                                   (or (<= beg primary-beg end)
+                                       (<= beg primary-end end)))
+                       #f]
+                      [_ (if immediate?
+                             (list 'replace file beg end message)
+                             (list 'highlight file beg end))])]
+                   [_ #f])])
+           (add #:primary primary #:secondary secondary))
+         (let* ([msg (string-append "⇒ " message)]
+                [primary
+                 (match definition ;header
+                   [(list file _line _col pos span)
+                    (list 'after file pos (+ pos span) msg)]
+                   [_ #f])]
+                [secondary
+                 (match caller
+                   [(list file _line _col pos span)
+                    ;; Only show result after caller if it is
+                    ;; immediate.
+                    (and immediate?
+                         (list 'after file pos (+ pos span) msg))]
+                   [_ #f])])
+           (add #:primary primary #:secondary secondary)))]
     [_ #f]))
   (define (add-data ht)
      ;; Non-tracing logging that has srcloc arising from
@@ -167,7 +185,8 @@
                                         'fatal #f))
     (define out (open-output-string))
     (define (prn v)
-      (pretty-print (log-receiver-vector->hasheq v)
+      (pretty-print (add-presentation-sites
+                     (log-receiver-vector->hasheq v))
                     out))
     (define (clear)
       (define v (sync/timeout 0 receiver))

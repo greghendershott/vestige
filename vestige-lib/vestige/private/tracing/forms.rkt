@@ -34,11 +34,13 @@
 (define-syntax-parser do-trace-lambda
   [(_ {~seq #:name name}
       {~seq #:formals formals:formals}
+      {~seq #:definition defn-stx}
       {~optional {~seq #:formals-stx-for-srcloc formals-srcloc-stx}
                  #:defaults ([formals-srcloc-stx #'formals])}
       {~optional {~seq #:header-stxs-for-srcloc [header-srcloc-stxs ...]}
                  #:defaults ([(header-srcloc-stxs 1) (list #'formals)])}
       body:expr ...+)
+   #:with defn-srcloc    (->srcloc-as-list #'defn-stx)
    #:with header-srcloc  (header-srcloc (syntax->list #'(header-srcloc-stxs ...)))
    #:with formals-srcloc (formals-srcloc #'formals-srcloc-stx)
    #:with positionals    (formals->positionals #'formals)
@@ -53,6 +55,7 @@
         proc
         (make-chaperone-wrapper-proc proc
                                      'name
+                                     'defn-srcloc
                                      'header-srcloc
                                      'formals-srcloc
                                      'positionals)
@@ -62,11 +65,13 @@
 (define-syntax-parser trace-lambda
   [(_ formals:formals body:expr ...+)
    #:with name (inferred-name-id this-syntax 'trace-lambda)
-   #'(trace-lambda #:name name formals body ...)]
+   (syntax/loc this-syntax (trace-lambda #:name name formals body ...))]
   [(_ {~seq #:name name:id} formals:formals body:expr ...+)
-   #'(do-trace-lambda #:name name
+   (quasisyntax/loc this-syntax
+     (do-trace-lambda #:name name
                       #:formals formals
-                      body ...)])
+                      #:definition #,this-syntax
+                      body ...))])
 
 (define-syntax (trace-case-lambda stx)
   (define counts null)
@@ -81,13 +86,15 @@
   (syntax-parse stx
     [(_ clause:clause ...+)
      #:with name (inferred-name-id stx 'trace-case-lambda)
-     #'(lambda args
-         (let ([clause.name (trace-lambda #:name name
-                                          clause.formals
-                                          clause.body ...)] ...)
-          (case (length args)
-            [(clause.count) (apply clause.name args)] ...
-            [else (apply raise-arity-error 'name '(clause.count ...) args)])))]))
+     (quasisyntax/loc this-syntax
+       (lambda args
+         (let ([clause.name (do-trace-lambda #:name name
+                                             #:formals clause.formals
+                                             #:definition #,this-syntax
+                                             clause.body ...)] ...)
+           (case (length args)
+             [(clause.count) (apply clause.name args)] ...
+             [else (apply raise-arity-error 'name '(clause.count ...) args)]))))]))
 
 (define-syntax-parser trace-define
   [(_ id:id expr:expr)
@@ -102,27 +109,35 @@
         (syntax-parse header
           [(_:id . fs:formals) (list #'fs)]
           [(more . fs:formals) (cons #'fs (loop #'more))]))))
+   (define overall-this-syntax this-syntax)
    #`(define header.name
        #,(let produce-lambda ([all-formals all-formals])
            (match all-formals
              [(list fmls)
               (syntax-property
                (quasisyntax/loc this-syntax
-                 (trace-lambda #,fmls body ...))
+                 (do-trace-lambda #:name header.name
+                                  #:formals #,fmls
+                                  #:definition #,overall-this-syntax
+                                  body ...))
                'inferred-name #'header.name)]
              [(cons fmls more)
               (syntax-property
                (quasisyntax/loc this-syntax
-                 (trace-lambda #,fmls #,(produce-lambda more)))
+                 (do-trace-lambda #:name header.name
+                                  #:formals #,fmls
+                                  #:definition #,overall-this-syntax
+                                  #,(produce-lambda more)))
                'inferred-name #'header.name)])))])
 
 (define-syntax-parser trace-let
   ;; "Named let"
   [(_ name:id {~and bindings ([param:id init:expr] ...)} body ...+)
    (quasisyntax/loc this-syntax
-     (letrec ([name #,(syntax/loc this-syntax
+     (letrec ([name #,(quasisyntax/loc this-syntax
                         (do-trace-lambda #:name name
                                          #:formals (param ...)
+                                         #:definition #,this-syntax
                                          #:formals-stx-for-srcloc bindings
                                          #:header-stxs-for-srcloc [name bindings]
                                          body ...))])

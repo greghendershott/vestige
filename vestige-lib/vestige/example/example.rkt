@@ -71,13 +71,23 @@
       [(list) (list)]
       [(cons x more) (cons (+ 100 x) (recur more))]))
   (recur (list 1 2 3 4 5 6 7 8 9 10))
-  (define ((curried x) y)
-    (+ x y))
-  (define uncurried (curried 99))
+  (define ((curried x0 x1) y0)
+    (list x0 x1 y0))
+  (define uncurried (curried 99 100))
   (uncurried 1)
   (define alice (lambda (x) x))
   (alice 34))
 (require 'implicit-example)
+
+(module case-lambda racket/base
+  (require vestige/tracing/implicit)
+  (define cl (case-lambda
+               [() 0]
+               [(x) x]
+               [(x y) (+ x y)]))
+  (cl)
+  (cl 1)
+  (cl 2 3))
 
 (module thread-example racket/base
   (require vestige/tracing/implicit)

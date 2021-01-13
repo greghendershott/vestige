@@ -27,6 +27,7 @@
               (define id expr)))]
          [(_ {~and header (id:id . formals:formals)}
              body:expr ...+)
+          #:with defn-srcloc    (->srcloc-as-list this-syntax)
           #:with header-srcloc  (header-srcloc (syntax->list #'(header)))
           #:with formals-srcloc (formals-srcloc #'formals)
           #:with positionals    (cons 'self (formals->positionals #'formals))
@@ -43,6 +44,7 @@
                  (lambda formals body (... ...))
                  (make-chaperone-wrapper-proc void
                                               'id
+                                              'defn-srcloc
                                               'header-srcloc
                                               'formals-srcloc
                                               'positionals)
