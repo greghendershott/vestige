@@ -60,93 +60,110 @@
 ;; available as an example, and they still have access to all the data
 ;; from log-receiver-vector->hasheq.
 (define (add-presentation-sites ht)
+
   (define (add #:primary primary #:secondary secondary)
     (hash-set* ht
                'primary-site primary
                'secondary-site secondary))
+
   (define (add-tracing ht)
-    (match (hash-ref ht 'tracing #f)
-      [(hash-table ['call       call?]
-                   ['message    message]
-                   ['args-from  args-from]
-                   ['args-upto  args-upto]
-                   ['definition definition]
-                   ['formals    formals]
-                   ['header     header]
-                   ['caller     (list immediate? caller)])
-     ;; Tracing call or results. The primary site is the called site
-     ;; i.e where the function is defined. The secondary site is the
-     ;; caller site (if any such information is available).
-     (if call?
-         (let* ([primary
-                 (match formals
-                   [(list file _line _col pos span)
-                    (cond
-                      ;; Empty formals span (thunk); no actual args
-                      ;; and anyway no place to show them: Instead
-                      ;; highlight the header keeping its existing
-                      ;; text.
-                      [(or (zero? span)
-                           (equal? args-from args-upto))
-                       (match-let ([(list file _line _col pos span) header])
-                         (list 'highlight file pos (+ pos span)))]
-                      ;; Non-empty formals span: replace the text at
-                      ;; formals location with the actual arguments.
-                      ;; These are a substring of the message.
-                      [else
-                       (list 'replace file pos (+ pos span)
-                             (substring message args-from args-upto))])])]
-                [secondary
+    (match ht
+      [(hash-table
+        ['tracing
+         (hash-table
+          ['call       call?]
+          ['message    message]
+          ['args-from  args-from]
+          ['args-upto  args-upto]
+          ['definition definition]
+          ['formals    formals]
+          ['header     header]
+          ['caller     (list immediate? caller)])])
+       ;; Tracing call or results. The primary site is the called site
+       ;; i.e where the function is defined. The secondary site is the
+       ;; caller site (if any such information is available).
+       (cond
+         [call?
+          (define primary
+            (match formals
+              [(list file _line _col pos span)
+               (cond
+                 ;; Empty formals span (thunk); no actual args
+                 ;; and anyway no place to show them: Instead
+                 ;; highlight the header keeping its existing
+                 ;; text.
+                 [(or (zero? span)
+                      (equal? args-from args-upto))
+                  (match-let ([(list file _line _col pos span) header])
+                    (list 'highlight file pos (+ pos span)))]
+                 ;; Non-empty formals span: replace the text at
+                 ;; formals location with the actual arguments.
+                 ;; These are a substring of the message.
+                 [else
+                  (list 'replace file pos (+ pos span)
+                        (substring message args-from args-upto))])]))
+          (define secondary
+            (match caller
+              [(list file _line _col pos span)
+               (define beg pos)
+               (define end (+ pos span))
+               (match primary
+                 ;; Don't show caller site if it intersects primary
+                 ;; site.
+                 [(list 'replace primary-file primary-beg primary-end _str)
+                  #:when (and (equal? file primary-file)
+                              (or (<= beg primary-beg end)
+                                  (<= beg primary-end end)))
+                  #f]
+                 ;; If caller was immediate, show application with
+                 ;; actual args at caller site, too. Otherwise just
+                 ;; highlight; it's just some indirect caller.
+                 [_ (if immediate?
+                        (list 'replace file beg end message)
+                        (list 'highlight file beg end))])]
+              [_ #f]))
+          (add #:primary   primary
+               #:secondary secondary)]
+         [else
+          (define msg (string-append "⇒ " message))
+          (define primary
+            (match definition ;header
+              [(list file _line _col pos span)
+               (list 'after file pos (+ pos span) msg)]
+              [_ #f]))
+          ;; Only caller site if it /directly/ called traced function.
+          (define secondary
+            (and immediate?
                  (match caller
-                   [(list file _line _col pos span)
-                    (define beg pos)
-                    (define end (+ pos span))
-                    ;; Only show secondary if it does not intersect
-                    ;; primary.
-                    (match primary
-                      [(list 'replace primary-file primary-beg primary-end _str)
-                       #:when (and (equal? file primary-file)
-                                   (or (<= beg primary-beg end)
-                                       (<= beg primary-end end)))
-                       #f]
-                      [_ (if immediate?
-                             (list 'replace file beg end message)
-                             (list 'highlight file beg end))])]
-                   [_ #f])])
-           (add #:primary primary #:secondary secondary))
-         (let* ([msg (string-append "⇒ " message)]
-                [primary
-                 (match definition ;header
                    [(list file _line _col pos span)
                     (list 'after file pos (+ pos span) msg)]
-                   [_ #f])]
-                [secondary
-                 (match caller
-                   [(list file _line _col pos span)
-                    ;; Only show result after caller if it is
-                    ;; immediate.
-                    (and immediate?
-                         (list 'after file pos (+ pos span) msg))]
-                   [_ #f])])
-           (add #:primary primary #:secondary secondary)))]
-    [_ #f]))
+                   [_ #f])))
+          (add #:primary   primary
+               #:secondary secondary)])]
+      [_ #f]))
+
   (define (add-data ht)
-     ;; Non-tracing logging that has srcloc arising from
-     ;; with-more-logging-data, has that as its primary site. There is
-     ;; no secondary site.
-     (match (hash-ref ht 'data #f)
-       [(hash-table ['srcloc (list file _line _col pos span)])
-        (add #:primary   (list 'highlight file pos (+ pos span))
-             #:secondary #f)]
-       [_ #f]))
+    ;; When non-tracing logging has srcloc arising from the use of
+    ;; with-more-logging-data, that is the primary site. There is
+    ;; never a secondary site.
+    (match ht
+      [(hash-table
+        ['data (hash-table
+                ['srcloc (list file _line _col pos span)])])
+       (add #:primary   (list 'highlight file pos (+ pos span))
+            #:secondary #f)]
+      [_ #f]))
+
   (or (add-tracing ht) ;most specific, try first
       (add-data ht)
       ;; Otherwise, nothing actionable wrt showing sites. A tool could
-      ;; should show context srcloc, but: 1. That's a stand-alone
-      ;; property that either is present or not -- there is no
-      ;; complicating presentation logic like the above. 2. Context
-      ;; can be a very large span -- benefitting from a presentation
-      ;; other than boldly highlghting the entire thing.
+      ;; should show context srcloc, but we don't try to handle that
+      ;; here because: 1. That's a stand-alone property that either is
+      ;; present or not -- there is no complicating presentation logic
+      ;; like the above, for us to hep with. 2. Context can be a very
+      ;; large span -- benefiting from a presentation other than
+      ;; highlighting the entire span, so a tool is going to handle
+      ;; that uniquely anyway.
       ht))
 
 ;; Change as necessary to satisfy `jsexpr?`
