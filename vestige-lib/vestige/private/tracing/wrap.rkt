@@ -59,11 +59,10 @@
       (or/c (listof symbol?) symbol?)
       procedure?)
   (define (on-args kws kw-vals args)
-    (define ccm (current-continuation-marks))
-    (define caller (cms->caller ccm proc))
+    (define caller (cms->caller proc))
     ;; For efficiency, don't get full list of marks. We only care
     ;; about those through the first one that is a number (if any).
-    (match (for/list ([v (in-marks ccm depth-key)]
+    (match (for/list ([v (in-marks (current-continuation-marks) depth-key)]
                       #:final (number? v))
              v)
       [(or

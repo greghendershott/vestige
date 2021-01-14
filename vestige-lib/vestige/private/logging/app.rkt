@@ -19,8 +19,9 @@
        (with-continuation-mark key (list proc #,@(->srcloc-as-list this-syntax))
          (#%app proc-expr more ...))))])
 
-(define (cms->caller cms proc)
-  (match (continuation-mark-set-first cms key)
+(define (cms->caller proc)
+  ;; Use #f to mean (current-continuation-marks) to enable shortcuts.
+  (match (continuation-mark-set-first #f key)
     [(cons actual-proc (? srcloc-as-list/c srcloc))
      (hasheq 'immediate (equal? actual-proc proc)
              'srcloc    srcloc)]
