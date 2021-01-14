@@ -51,16 +51,12 @@
    ;; when necessary.)
    #:with lam            (syntax/loc this-syntax (lambda formals body ...))
    #'(let ([proc (procedure-rename lam 'name)])
-       (chaperone-procedure
-        proc
-        (make-chaperone-wrapper-proc proc
-                                     'name
-                                     'defn-srcloc
-                                     'header-srcloc
-                                     'formals-srcloc
-                                     'positionals)
-        chaperone-prop-key
-        chaperone-prop-val))])
+       (make-wrapper-proc proc
+                          'name
+                          'defn-srcloc
+                          'header-srcloc
+                          'formals-srcloc
+                          'positionals))])
 
 (define-syntax-parser trace-lambda
   [(_ formals:formals body:expr ...+)

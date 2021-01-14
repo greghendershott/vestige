@@ -4,6 +4,7 @@
          racket/match
          racket/string
          syntax/parse/define
+         "../logging/depth.rkt"
          "../logging/log.rkt"
          "../logging/data.rkt")
 
@@ -28,7 +29,7 @@
   (when (log?)
     (do-log-args e ...)))
 
-(define (do-log-args name tail? args kws kw-vals depth
+(define (do-log-args name tail? args kws kw-vals
                      caller called positional-syms)
   (define args-str (string-join
                     (append (match positional-syms
@@ -52,14 +53,13 @@
                                         caller called
                                         args-from args-upto)
     (with-more-logging-data #:srcloc? #f
-      (log! (~a (make-string depth #\>) " " message)))))
+      (log! (~a (make-string (cms->logging-depth) #\>) " " message)))))
 
 (define-simple-macro (log-results e:expr ...)
   (when (log?)
     (do-log-results e ...)))
 
-(define (do-log-results name results depth
-                        caller called)
+(define (do-log-results name results caller called)
   (define results-str
     (~a (match results
           [(list)   "#<void>"]
@@ -68,7 +68,7 @@
   (with-tracing-mark (make-tracing-data #f #f name results-str
                                         caller called)
     (with-more-logging-data #:srcloc? #f
-      (log! (~a (make-string depth #\<) " " results-str)))))
+      (log! (~a (make-string (cms->logging-depth) #\<) " " results-str)))))
 
 (define (make-tracing-data call? tail? name message
                            caller called

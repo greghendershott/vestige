@@ -175,6 +175,14 @@
                [(x) x]
                [(x y) (+ x y)])))
 
+(module kw-depth-marks racket/base
+  (require vestige/tracing/implicit)
+  (define (f #:x x) x)
+  (define (g x) (+ 1 (f #:x x)))
+  (define (h x) (g x))
+  (h 12))
+(require 'kw-depth-marks)
+
 ;; Finally stop the receiver, letting it print the accumulated output,
 ;; after module evaluations have printed results, not intermixed.
 (module stop-receiver racket/base

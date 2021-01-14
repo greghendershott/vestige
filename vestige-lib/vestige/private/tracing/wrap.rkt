@@ -2,55 +2,19 @@
 
 (require racket/contract
          racket/match
-         "../in-marks.rkt"
          "../logging/app.rkt"
          "../logging/depth.rkt"
          "../logging/srcloc.rkt"
          "logging.rkt")
 
-(provide make-chaperone-wrapper-proc
-         (rename-out [impersonator-prop:application-mark chaperone-prop-key])
-         chaperone-prop-val)
+(provide make-wrapper-proc)
 
-;; A value for impersonator-prop:application-mark.
-(define chaperone-prop-val (cons depth-key 'app-mark))
-
-;; Produce a wrapper proc for chaperone-procedure.
-;;
-;; The depth detection -- including tail call detection -- relies on
-;; chaperone-procedure also being called with chaperone prop/val
-;; impersonator-prop:application-mark (cons depth-key 'app-mark). That
-;; way we can detect a tail call from the marks starting with two
-;; consecutive 'app-mark values. When not a tail call, we add our own
-;; depth-key mark whose value is the depth number.
-;;
-;; Honest note to future self: The "double app-mark" pattern arose
-;; inductively/empirically -- not (yet) from a rigorous understanding
-;; of how the 'app-mark values and the number values interleave.
-;;
-;; Quote from docs, where I've capitalized PROC (the proc being
-;; wrapped) and WRAPPER-PROC (this here).
-;;
-;;   "If any prop is impersonator-prop:application-mark and if the
-;;   associated prop-val is a pair, then the call to PROC is wrapped
-;;   with with-continuation-mark using (car prop-val) as the mark key
-;;   and (cdr prop-val) as the mark value. In addition, if the
-;;   immediate continuation frame of the call to the impersonated
-;;   PROCEDURE includes a value for (car prop-val) -- that is, if
-;;   call-with-immediate-continuation-mark would produce a value for
-;;   (car prop-val) in the call’s continuation -- then the value is
-;;   also installed as an immediate value for (car prop-val) as a mark
-;;   during the call to WRAPPER-PROC (which allows tail-calls of
-;;   impersonators with respect to wrapping impersonators to be
-;;   detected within WRAPPER-PROC)."
-;;
-;; <https://docs.racket-lang.org/reference/chaperones.html#%28def._%28%28lib._racket%2Fprivate%2Fbase..rkt%29._impersonate-procedure%29%29>
-(define/contract (make-chaperone-wrapper-proc proc
-                                              name
-                                              definition-srcloc
-                                              header-srcloc
-                                              formals-srcloc
-                                              positional-syms)
+(define/contract (make-wrapper-proc proc
+                                    name
+                                    definition-srcloc
+                                    header-srcloc
+                                    formals-srcloc
+                                    positional-syms)
   (-> procedure?
       symbol?
       srcloc-as-list/c
@@ -61,46 +25,48 @@
   (define called (make-called-hash-table definition-srcloc
                                          header-srcloc
                                          formals-srcloc))
-  (define (on-args kws kw-vals args)
+  (define (apply/traced kws kw-vals args)
     (define caller (cms->caller proc))
-    ;; For efficiency, don't get full list of marks. We only care
-    ;; about those through the second one that is a number (if any).
-    ;; See match pattern below.
-    (define marks (for*/fold ([vs '()]
-                              [num? #f]
-                              #:result (reverse vs))
-                             ([v (in-marks (current-continuation-marks) depth-key)]
-                              #:final (and num? (number? v)))
-                    (values (cons v vs)
-                            (or num? (number? v)))))
-    (match marks
-      [(or
-        ;; This first pattern is, IIUC, to work around
-        ;; <https://github.com/racket/racket/issues/1836>.
-        (list* 'app-mark 'app-mark (? number?) (? number? depth) _)
-        (list* 'app-mark 'app-mark (? number? depth) _))
-       ;; Tail call: Do NOT supply a `results` proc to the chaperone,
-       ;; because we don't want to log the results and because we want
-       ;; to remain a tail call. Also, do NOT call the wrapped proc
-       ;; with a new, incremented depth-key mark.
-       (log-args name #t args kws kw-vals depth caller called positional-syms)
-       (if (null? kws)
-           (apply values         args)
-           (apply values kw-vals args))]
-      [marks
-       ;; Not a tail call: Do supply a `results` proc to the
-       ;; chaperone so we can log the results. Also, ask it to call
-       ;; the wrapped proc with an incremented depth-key mark.
-       (define old-depth (marks->logging-depth marks))
-       (define new-depth (add1 old-depth))
-       (define (on-results . results)
-         (with-continuation-mark depth-key old-depth
-           (log-results name results new-depth caller called))
-         (apply values results))
-       (log-args name #f args kws kw-vals new-depth caller called positional-syms)
-       (if (null? kws)
-           (apply values on-results 'mark depth-key new-depth         args)
-           (apply values on-results 'mark depth-key new-depth kw-vals args))]))
-  (define (plain-proc . args)          (on-args null null    args))
-  (define (kw-proc kws kw-vals . args) (on-args kws  kw-vals args))
+    (define depths (continuation-mark-set->list
+                    (current-continuation-marks)
+                    depth-key))
+    (define depth (if (null? depths) 0 (car depths)))
+    ;; Tentatively push the new depth depth:
+    (with-continuation-mark depth-key (add1 depth)
+      ;; Check for tail-call => car of depths replaced,
+      ;;  which means that the first two new marks are
+      ;;  not consecutive:
+      (let ([new-depths (continuation-mark-set->list
+                         (current-continuation-marks)
+                         depth-key)])
+        (cond
+          [(and (pair? (cdr new-depths))
+                (> (car new-depths) (add1 (cadr new-depths))))
+           ;; Tail call: reset depth and just call real-value. (This is
+           ;; in tail position to the call to `apply/traced'.) We don't
+           ;; print the results, because the original call will.
+           (log-args name #t args kws kw-vals caller called positional-syms)
+           (with-continuation-mark depth-key (car depths)
+             (if (null? kws)
+                 (apply proc args)
+                 (keyword-apply proc kws kw-vals args)))]
+          [else
+           ;; Not a tail call; push the old depth, again, to ensure that
+           ;; when we push the new depth, we have consecutive depths
+           ;; associated with the mark (i.e., set up for tail-call
+           ;; detection the next time around):
+           (log-args name #f args kws kw-vals caller called positional-syms)
+           (with-continuation-mark depth-key depth
+             (call-with-values
+              (λ ()
+                (with-continuation-mark depth-key (add1 depth)
+                  (if (null? kws)
+                      (apply proc args)
+                      (keyword-apply proc kws kw-vals args))))
+              (λ results
+                (with-continuation-mark depth-key (add1 depth)
+                  (log-results name results caller called))
+                (apply values results))))]))))
+  (define (plain-proc . args)          (apply/traced null null    args))
+  (define (kw-proc kws kw-vals . args) (apply/traced kws  kw-vals args))
   (make-keyword-procedure kw-proc plain-proc))

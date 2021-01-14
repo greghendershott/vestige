@@ -30,26 +30,21 @@
           #:with defn-srcloc    (->srcloc-as-list this-syntax)
           #:with header-srcloc  (header-srcloc (syntax->list #'(header)))
           #:with formals-srcloc (formals-srcloc #'formals)
-          #:with positionals    (cons 'self (formals->positionals #'formals))
-          (syntax/loc this-syntax
+          #:with positionals    (formals->positionals #'formals)
+          (quasisyntax/loc this-syntax
             (begin
               (class-keyword id)
-              ;; Here racket/class need us to expand to something
-              ;; matching its method-definition grammar:
-              ;; (define-values (id) <method-proceure>). For
-              ;; <method-procedure> fortunately one choice is
-              ;; chaperone-procedure.
               (define-values (id)
-                (chaperone-procedure
-                 (lambda formals body (... ...))
-                 (make-chaperone-wrapper-proc void
+                (lambda formals
+                  ;; Stupid, slow first version; calls
+                  ;; make-wrapper-proc every time.
+                  (let ([w (make-wrapper-proc (lambda formals body (... ...))
                                               'id
                                               'defn-srcloc
                                               'header-srcloc
                                               'formals-srcloc
-                                              'positionals)
-                 chaperone-prop-key
-                 chaperone-prop-val))))])
+                                              'positionals)])
+                    (w #,@#'formals.params))))))])
        (provide definer-name)))])
 
 (define/provide-method-definer private)
@@ -63,3 +58,30 @@
 (define/provide-method-definer override-final)
 (define/provide-method-definer augment-final)
 
+(module+ example
+  (define fish%
+    (class object%
+      (init size)                ; initialization argument
+      (define current-size size) ; field
+      (super-new)                ; superclass initialization
+      (trace-define/public (get-size)
+        current-size)
+      (trace-define/public (grow amt)
+                           (println this)
+                           (set! current-size (+ amt current-size))
+                           10)
+      (trace-define/public (eat other-fish)
+        (grow (send other-fish get-size)))))
+
+  (define picky-fish%
+    (class fish% (super-new)
+      (trace-define/override (grow amt)
+                             (super grow (* 3/4 amt)))))
+
+  (define daisy (new picky-fish% [size 20]))
+  (send daisy get-size)
+  (send daisy grow 100)
+  (send daisy get-size)
+
+  (define charlie (new fish% [size 500]))
+  (send daisy eat charlie))

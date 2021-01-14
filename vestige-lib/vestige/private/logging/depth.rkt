@@ -1,13 +1,11 @@
 #lang racket/base
 
 (require (for-syntax racket/base)
-         syntax/parse/define
-         "../in-marks.rkt")
+         syntax/parse/define)
 
 (provide depth-key ;for use also by tracing/wrap.rkt
-         cms->logging-depth
-         marks->logging-depth
-         with-more-logging-depth)
+         with-more-logging-depth
+         cms->logging-depth)
 
 ;; Key used for a continuation mark to indicate the depth. Non-tail
 ;; calls of traced functions adjust the depth automatically; see
@@ -19,21 +17,16 @@
 ;; Intentionally not using make-continuation-mark-key.
 (define depth-key 'vestige-depth-continuation-mark-key)
 
-(define (cms->logging-depth cms)
-  ;; For efficiency iterate until we have a number value (don't get
-  ;; list of all marks beyond what we need).
-  (or (for/or ([v (in-marks cms depth-key)])
-        (and (number? v) v))
-      0))
-
-(define (marks->logging-depth marks)
-  (or (findf number? marks)
-      0))
-
 (define-syntax-parser with-more-logging-depth
   [(_ e:expr)
    (quasisyntax/loc this-syntax
-     (let* ([old-depth (cms->logging-depth (current-continuation-marks))]
+     (let* ([old-depth (cms->logging-depth)]
             [new-depth (add1 old-depth)])
        (with-continuation-mark depth-key new-depth
          e)))])
+
+;; Accepts #f for proc, with the same meaning as for
+;; continuation-mark-set-first: An alias for
+;; (current-continuation-marks) that can possibly work faster.
+(define (cms->logging-depth [cms #f])
+  (continuation-mark-set-first cms depth-key))
