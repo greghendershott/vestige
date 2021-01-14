@@ -64,10 +64,16 @@
   (define (on-args kws kw-vals args)
     (define caller (cms->caller proc))
     ;; For efficiency, don't get full list of marks. We only care
-    ;; about those through the first one that is a number (if any).
-    (match (for/list ([v (in-marks (current-continuation-marks) depth-key)]
-                      #:final (number? v))
-             v)
+    ;; about those through the second one that is a number (if any).
+    ;; See match pattern below.
+    (define marks (for*/fold ([vs '()]
+                              [num? #f]
+                              #:result (reverse vs))
+                             ([v (in-marks (current-continuation-marks) depth-key)]
+                              #:final (and num? (number? v)))
+                    (values (cons v vs)
+                            (or num? (number? v)))))
+    (match marks
       [(or
         ;; This first pattern is, IIUC, to work around
         ;; <https://github.com/racket/racket/issues/1836>.
