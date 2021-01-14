@@ -10,35 +10,33 @@
 ;; and distracting.
 ;;
 ;; Below is our adaptation with different truncation behavior: When
-;; the source is a path, we simply use the base name. (Normally I hate
-;; discarding full pathnames, but we're using this to generate a name
-;; where we have numerous srclocs otherise avaiable.)
+;; the source is a path, we simply use the filename:line:col.
+;;
+;; (Although normally I hate discarding full pathnames, we're using
+;; this to generate a name where we already have available numerous
+;; srclocs about the defined function.)
 
-(define syntax-local-infer-name
-  (case-lambda
-    [(stx use-local?)
-     (let-values ([(prop) (simplify-inferred-name (syntax-property stx 'inferred-name))])
-       (or (and prop
-                (not (void? prop))
-                prop)
-           (let ([n (and use-local?
-                         (not (void? prop))
-                         (syntax-local-name))])
-             (or n
-                 (let ([s (syntax-source stx)])
-                   (and s
-                        (let ([s (format
-                                  "~a"
-                                  (if (path? s)
-                                    (path->string (file-name-from-path s))
-                                    s))]
-                              [l (syntax-line stx)]
-                              [c (syntax-column stx)])
-                          (if l
-                              (string->symbol (format "~a:~a:~a" s l c))
-                              (let ([p (syntax-position stx)])
-                                (string->symbol (format "~a::~a" s p)))))))))))]
-    [(stx) (syntax-local-infer-name stx #t)]))
+(define (syntax-local-infer-name stx)
+  (let ([prop (simplify-inferred-name (syntax-property stx 'inferred-name))])
+    (or (and prop
+             (not (void? prop))
+             prop)
+        (let ([n (and (not (void? prop))
+                      (syntax-local-name))])
+          (or n
+              (let ([s (syntax-source stx)])
+                (and s
+                     (let ([s (format
+                               "~a"
+                               (if (path? s)
+                                   (path->string (file-name-from-path s))
+                                   s))]
+                           [l (syntax-line stx)]
+                           [c (syntax-column stx)])
+                       (if l
+                           (string->symbol (format "~a:~a:~a" s l c))
+                           (let ([p (syntax-position stx)])
+                             (string->symbol (format "~a::~a" s p))))))))))))
 
 (define (simplify-inferred-name name)
   (if (pair? name)
