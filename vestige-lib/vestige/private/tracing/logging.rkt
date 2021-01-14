@@ -89,16 +89,16 @@
 ;; into a little hash-table. We state the file pathname, once, and
 ;; supply only the cdr -- (line col pos span) -- of each
 ;; srcloc-as-list.
-(define (make-called-hash-table definition formals header)
-  (match (list definition formals header)
-    [(list (cons file definition) (cons file formals) (cons file header))
+(define (make-called-hash-table definition header formals)
+  (match (list definition header formals)
+    [(list (cons file definition) (cons file header) (cons file formals))
      (hasheq 'file       file
              'definition definition
-             'formals    formals
-             'header     header)]
+             'header     header
+             'formals    formals)]
     [_ (raise-arguments-error
         'make-called-hash-table
         "expected srcloc-as-list/c values to have same file"
         "definition" definition
-        "formals"    formals
-        "header"     header)]))
+        "header"     header
+        "formals"    formals)]))

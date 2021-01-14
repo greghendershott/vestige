@@ -47,7 +47,7 @@
 ;; <https://docs.racket-lang.org/reference/chaperones.html#%28def._%28%28lib._racket%2Fprivate%2Fbase..rkt%29._impersonate-procedure%29%29>
 (define/contract (make-chaperone-wrapper-proc proc
                                               name
-                                              defn-srcloc
+                                              definition-srcloc
                                               header-srcloc
                                               formals-srcloc
                                               positional-syms)
@@ -58,7 +58,9 @@
       srcloc-as-list/c
       (or/c (listof symbol?) symbol?)
       procedure?)
-  (define called (make-called-hash-table defn-srcloc header-srcloc formals-srcloc))
+  (define called (make-called-hash-table definition-srcloc
+                                         header-srcloc
+                                         formals-srcloc))
   (define (on-args kws kw-vals args)
     (define caller (cms->caller proc))
     ;; For efficiency, don't get full list of marks. We only care
