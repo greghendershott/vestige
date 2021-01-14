@@ -58,6 +58,7 @@
       srcloc-as-list/c
       (or/c (listof symbol?) symbol?)
       procedure?)
+  (define called (make-called-hash-table defn-srcloc header-srcloc formals-srcloc))
   (define (on-args kws kw-vals args)
     (define caller (cms->caller proc))
     ;; For efficiency, don't get full list of marks. We only care
@@ -74,8 +75,7 @@
        ;; because we don't want to log the results and because we want
        ;; to remain a tail call. Also, do NOT call the wrapped proc
        ;; with a new, incremented depth-key mark.
-       (log-args name #t args kws kw-vals depth
-                 caller defn-srcloc formals-srcloc header-srcloc positional-syms)
+       (log-args name #t args kws kw-vals depth caller called positional-syms)
        (if (null? kws)
            (apply values         args)
            (apply values kw-vals args))]
@@ -87,11 +87,9 @@
        (define new-depth (add1 old-depth))
        (define (on-results . results)
          (with-continuation-mark depth-key old-depth
-           (log-results name results new-depth
-                        caller defn-srcloc formals-srcloc header-srcloc))
+           (log-results name results new-depth caller called))
          (apply values results))
-       (log-args name #f args kws kw-vals new-depth
-                 caller defn-srcloc formals-srcloc header-srcloc positional-syms)
+       (log-args name #f args kws kw-vals new-depth caller called positional-syms)
        (if (null? kws)
            (apply values on-results 'mark depth-key new-depth         args)
            (apply values on-results 'mark depth-key new-depth kw-vals args))]))
