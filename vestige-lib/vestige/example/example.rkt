@@ -132,7 +132,11 @@
       (trace-define/public (grow amt)
                            (set! current-size (+ amt current-size)))
       (define/public (eat other-fish)
-        (grow (send other-fish get-size)))))
+        (grow (send other-fish get-size)))
+      (trace-define/public (keyword-method #:kw [foo 22])
+        (+ foo 2))
+      (define/public (call-keyword-method)
+        (keyword-method #:kw 42))))
 
   (define picky-fish%
     (class fish% (super-new)
@@ -145,7 +149,8 @@
   (send daisy get-size)
 
   (define charlie (new fish% [size 500]))
-  (send daisy eat charlie))
+  (send daisy eat charlie)
+  (send daisy call-keyword-method))
 (require 'class-example)
 
 ;; This example module here just to compare check-syntax tail

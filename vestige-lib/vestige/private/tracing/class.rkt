@@ -27,25 +27,49 @@
               (define id expr)))]
          [(_ {~and header (id:id . formals:formals)}
              body:expr ...+)
-          #:with defn-srcloc    (->srcloc-as-list this-syntax)
-          #:with header-srcloc  (header-srcloc (syntax->list #'(header)))
-          #:with formals-srcloc (formals-srcloc #'formals)
-          #:with positionals    (formals->positionals #'formals)
-          (quasisyntax/loc this-syntax
+          #:with defn-srcloc     (->srcloc-as-list this-syntax)
+          #:with header-srcloc   (header-srcloc (syntax->list #'(header)))
+          #:with formals-srcloc  (formals-srcloc #'formals)
+          #:with positionals     (formals->positionals #'formals)
+          #:with wrapper-id      (format-id #'id "~a.~a" #'id (gensym 'wrapper.))
+          #:with (arg (... ...)) (formals->actuals #'formals)
+          (syntax/loc this-syntax
             (begin
               (class-keyword id)
+              ;; The `class` macro partially expands and looks for a
+              ;; restricted grammar of shapes. As a result we can't
+              ;; simply do something like:
+              ;;
+              ;; (define-values (id)
+              ;;   (make-wrapper-proc (lambda formals body ...) ___))
+              ;;
+              ;; So, instead we define a wrapper as a plain function
+              ;; definition...
+              (define wrapper-id
+                (make-wrapper-proc (lambda formals body (... ...))
+                                   'id
+                                   'defn-srcloc
+                                   'header-srcloc
+                                   'formals-srcloc
+                                   'positionals))
+              ;; ... then define the method using one of the
+              ;; acceptable shapes. The method calls the wrapper. (Of
+              ;; course that means "wrapper" is a misnomer; this could
+              ;; work differently, but I'm following the model of
+              ;; trace-define-lambda.)
               (define-values (id)
                 (lambda formals
-                  ;; Stupid, slow first version; calls
-                  ;; make-wrapper-proc every time.
-                  (let ([w (make-wrapper-proc (lambda formals body (... ...))
-                                              'id
-                                              'defn-srcloc
-                                              'header-srcloc
-                                              'formals-srcloc
-                                              'positionals)])
-                    (w #,@#'formals.params))))))])
+                  (wrapper-id arg (... ...))))))])
        (provide definer-name)))])
+
+(begin-for-syntax
+  ;; I split this out as a helper only because I was getting confusing
+  ;; messages about ellipses, even being careful to use `(... ...)`
+  ;; instead of `...` when applicable (or so I thought).
+  (define (formals->actuals stx)
+    (syntax-parse (syntax->list stx)
+      [(f:formal ...)
+       #'((~@ (~? f.kw) f.name) ...)])))
 
 (define/provide-method-definer private)
 (define/provide-method-definer public)
@@ -58,30 +82,3 @@
 (define/provide-method-definer override-final)
 (define/provide-method-definer augment-final)
 
-(module+ example
-  (define fish%
-    (class object%
-      (init size)                ; initialization argument
-      (define current-size size) ; field
-      (super-new)                ; superclass initialization
-      (trace-define/public (get-size)
-        current-size)
-      (trace-define/public (grow amt)
-                           (println this)
-                           (set! current-size (+ amt current-size))
-                           10)
-      (trace-define/public (eat other-fish)
-        (grow (send other-fish get-size)))))
-
-  (define picky-fish%
-    (class fish% (super-new)
-      (trace-define/override (grow amt)
-                             (super grow (* 3/4 amt)))))
-
-  (define daisy (new picky-fish% [size 20]))
-  (send daisy get-size)
-  (send daisy grow 100)
-  (send daisy get-size)
-
-  (define charlie (new fish% [size 500]))
-  (send daisy eat charlie))
