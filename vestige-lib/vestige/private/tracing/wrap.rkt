@@ -69,4 +69,5 @@
                 (apply values results))))]))))
   (define (plain-proc . args)          (apply/traced null null    args))
   (define (kw-proc kws kw-vals . args) (apply/traced kws  kw-vals args))
-  (make-keyword-procedure kw-proc plain-proc))
+  (procedure-rename (make-keyword-procedure kw-proc plain-proc)
+                    name))

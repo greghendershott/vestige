@@ -49,14 +49,13 @@
    ;; here. (Macros below that expand to us, should also ensure that
    ;; our use has srcloc from the user's program, using syntax/loc
    ;; when necessary.)
-   #:with lam            (syntax/loc this-syntax (lambda formals body ...))
-   #'(let ([proc (procedure-rename lam 'name)])
-       (make-wrapper-proc proc
-                          'name
-                          'defn-srcloc
-                          'header-srcloc
-                          'formals-srcloc
-                          'positionals))])
+   #:with proc           (syntax/loc this-syntax (lambda formals body ...))
+   #'(make-wrapper-proc proc
+                        'name
+                        'defn-srcloc
+                        'header-srcloc
+                        'formals-srcloc
+                        'positionals)])
 
 (define-syntax-parser trace-lambda
   [(_ formals:formals body:expr ...+)
