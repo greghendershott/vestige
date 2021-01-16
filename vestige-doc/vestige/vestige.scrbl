@@ -214,9 +214,9 @@ the depth by one for the dynamic extent of the form.
 
 When you use a @racketmodname[vestige/tracing] module, the depth at
 any point is the depth of the traced call(s). Other, ordinary logging
-is ``under that depth'' automatically. For example a @racket[log-info]
-in the body of a traced function is automatically at one more than the
-depth as the tracing showing the function call. You only need use
+is ``at that depth'' automatically. For example a @racket[log-info] in
+the body of a traced function is automatically at the depth as the
+tracing showing the function call. You only need use
 @racket[with-more-logging-depth] if you want to increase the depth
 even more.
 
@@ -620,9 +620,9 @@ Here is a small example program:
 (log-example-info "I am outside, my depth is 0")
 
 (trace-define (f x)
-  (log-example-info "I am automatically under the depth of `f`: 2.")
+  (log-example-info "I am automatically at the depth of `f`: 1.")
   (with-more-logging-depth
-    (log-example-info "I am one deeper: 3."))
+    (log-example-info "I am one deeper: 2."))
   (+ 1 x))
 
 (trace-define (g x)
@@ -685,11 +685,11 @@ call or @racket[with-more-logging-depth] form, so its depth is the
 default, 0.
 
 The second @racket[log-example-info] is inside the call to @racket[f]
-at depth 1, so automatically its depth is 2.
+at depth 1, so automatically its depth is 1.
 
 The third @racket[log-example-info] is within a
 @racket[with-more-logging-depth] form; as a result, its depth is one
-greater: 3. The use case here is for more detailed logging that a
+greater: 2. The use case here is for more detailed logging that a
 receiver could show indented, folded, or hidden, depending on its user
 interface options.
 
