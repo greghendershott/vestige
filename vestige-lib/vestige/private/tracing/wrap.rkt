@@ -2,6 +2,7 @@
 
 (require racket/contract
          racket/match
+         "../in-marks.rkt"
          "../logging/app.rkt"
          "../logging/depth.rkt"
          "../logging/srcloc.rkt"
@@ -25,49 +26,45 @@
   (define called (make-called-hash-table definition-srcloc
                                          header-srcloc
                                          formals-srcloc))
-  (define (apply/traced kws kw-vals args)
+  (define (call-traced kws kw-vals args)
     (define caller (cms->caller proc))
-    (define depths (continuation-mark-set->list
-                    (current-continuation-marks)
-                    depth-key))
-    (define depth (if (null? depths) 0 (car depths)))
-    ;; Tentatively push the new depth depth:
-    (with-continuation-mark depth-key (add1 depth)
-      ;; Check for tail-call => car of depths replaced,
-      ;;  which means that the first two new marks are
-      ;;  not consecutive:
-      (let ([new-depths (continuation-mark-set->list
-                         (current-continuation-marks)
-                         depth-key)])
-        (cond
-          [(and (pair? (cdr new-depths))
-                (> (car new-depths) (add1 (cadr new-depths))))
-           ;; Tail call: reset depth and just call real-value. (This is
-           ;; in tail position to the call to `apply/traced'.) We don't
-           ;; print the results, because the original call will.
-           (log-args name #t args kws kw-vals caller called positional-syms)
-           (with-continuation-mark depth-key (car depths)
+    (define old-depth (or (continuation-mark-set-first #f depth-key) 0))
+    (define new-depth (add1 old-depth))
+    ;; Tentatively push the new depth:
+    (with-continuation-mark depth-key new-depth
+      ;; Check first two new marks; consecutive?
+      (match (for/list ([v (in-marks (current-continuation-marks) depth-key)]
+                        [_ (in-range 2)])
+               v)
+        [(list this next)
+         #:when (> this (add1 next)) ;e.g. (4 2) instead of (3 2)
+         ;; Tail call: keep old depth and call `proc`. We don't print
+         ;; the results, because the original call will.
+         (with-continuation-mark depth-key old-depth
+           (begin
+             (log-args name #t args kws kw-vals caller called positional-syms)
              (if (null? kws)
                  (apply proc args)
-                 (keyword-apply proc kws kw-vals args)))]
-          [else
-           ;; Not a tail call; push the old depth, again, to ensure that
-           ;; when we push the new depth, we have consecutive depths
-           ;; associated with the mark (i.e., set up for tail-call
-           ;; detection the next time around):
-           (log-args name #f args kws kw-vals caller called positional-syms)
-           (with-continuation-mark depth-key depth
-             (call-with-values
-              (λ ()
-                (with-continuation-mark depth-key (add1 depth)
+                 (keyword-apply proc kws kw-vals args))))]
+        [_
+         ;; Not a tail call; push old depth, again, to ensure that
+         ;; when we push the new depth, we have consecutive depths
+         ;; associated with the mark (i.e., set up for tail-call
+         ;; detection the next time around):
+         (with-continuation-mark depth-key old-depth
+           (call-with-values
+            (λ ()
+              (with-continuation-mark depth-key new-depth
+                (begin
+                  (log-args name #f args kws kw-vals caller called positional-syms)
                   (if (null? kws)
                       (apply proc args)
-                      (keyword-apply proc kws kw-vals args))))
-              (λ results
-                (with-continuation-mark depth-key (add1 depth)
-                  (log-results name results caller called))
-                (apply values results))))]))))
-  (define (plain-proc . args)          (apply/traced null null    args))
-  (define (kw-proc kws kw-vals . args) (apply/traced kws  kw-vals args))
+                      (keyword-apply proc kws kw-vals args)))))
+            (λ results
+              (with-continuation-mark depth-key new-depth
+                (log-results name results caller called))
+              (apply values results))))])))
+  (define (plain-proc . args)          (call-traced null null    args))
+  (define (kw-proc kws kw-vals . args) (call-traced kws  kw-vals args))
   (procedure-rename (make-keyword-procedure kw-proc plain-proc)
                     name))
