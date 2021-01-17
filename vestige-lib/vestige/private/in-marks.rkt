@@ -12,14 +12,20 @@
     [vs  (for/and ([v (in-list vs)]) ;general path
            (eq? v stop-value))]))
 
+(define single-stop-value (list stop-value)) ;fast path; preallocate
+
 (define (make-marks-producer cms keys none-v)
-  (define stops (build-list (length keys) (λ _ stop-value)))
+  (define stop-values-list
+    (match keys
+      [(list)   (raise-argument-error 'in-marks "at least one key" keys)]
+      [(list _) single-stop-value] ;fast path
+      [_        (build-list (length keys) (λ _ stop-value))]))
   (define iter (continuation-mark-set->iterator cms keys none-v))
   (define (produce)
     (define-values (v new-iter) (iter))
     (set! iter new-iter)
     (match v
-      [#f              (apply values stops)]
+      [#f              (apply values stop-values-list)]
       [(vector v)      v]                   ;fast path
       [(vector vs ...) (apply values vs)])) ;general path
   produce)
@@ -78,4 +84,8 @@
                (check-equal? (for/list ([(v1 v2) (in-marks cms k1 k2)]
                                         #:final (and v1 v2))
                                (vector v1 v2))
-                             '(#(#f a) #(#f b) #(1 c)))))))))))
+                             '(#(#f a) #(#f b) #(1 c))))))))))
+
+  ;; Expected failure
+  (check-exn exn:fail:contract?
+             (λ _ (in-marks (current-continuation-marks)))))
