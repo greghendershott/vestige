@@ -1,10 +1,9 @@
 #lang racket/base
 
 (require racket/contract
-         racket/match
-         "../in-marks.rkt"
          "../logging/app.rkt"
          "../logging/depth.rkt"
+         "../logging/log.rkt"
          "../logging/srcloc.rkt"
          "logging.rkt")
 
@@ -26,18 +25,14 @@
   (define called (make-called-hash-table definition-srcloc
                                          header-srcloc
                                          formals-srcloc))
-  (define (call-traced kws kw-vals args)
+  (define (traced kws kw-vals args)
     (define caller (cms->caller proc))
     (define old-depth (or (continuation-mark-set-first #f depth-key) 0))
     (define new-depth (add1 old-depth))
     ;; Tentatively push the new depth:
     (with-continuation-mark depth-key new-depth
-      ;; Check first two new marks; consecutive?
-      (match (for/list ([v (in-marks (current-continuation-marks) depth-key)]
-                        [_ (in-range 2)])
-               v)
-        [(list this next)
-         #:when (> this (add1 next)) ;e.g. (4 2) instead of (3 2)
+      (cond
+        [(tail?)
          ;; Tail call: keep old depth and call `proc`. We don't print
          ;; the results, because the original call will.
          (with-continuation-mark depth-key old-depth
@@ -46,7 +41,7 @@
              (if (null? kws)
                  (apply proc args)
                  (keyword-apply proc kws kw-vals args))))]
-        [_
+        [else
          ;; Not a tail call; push old depth, again, to ensure that
          ;; when we push the new depth, we have consecutive depths
          ;; associated with the mark (i.e., set up for tail-call
@@ -64,7 +59,54 @@
               (with-continuation-mark depth-key new-depth
                 (log-results name results caller called))
               (apply values results))))])))
-  (define (plain-proc . args)          (call-traced null null    args))
-  (define (kw-proc kws kw-vals . args) (call-traced kws  kw-vals args))
+  (define (plain-proc . args)
+    (if (log?)
+        (traced null null args)
+        (apply proc args)))
+  (define (kw-proc kws kw-vals . args)
+    (if (log?)
+        (traced kws kw-vals args)
+        (keyword-apply proc kws kw-vals args)))
   (procedure-rename (make-keyword-procedure kw-proc plain-proc)
                     name))
+
+(define (tail?)
+  ;; We need to check the first two marks, if any, for tail detection.
+  ;;
+  ;; We'd like to write:
+  #;
+  (let ()
+    (local-require racket/match "../in-marks.rkt")
+    (match (for/list ([v (in-marks (current-continuation-marks) depth-key)]
+                      [_ (in-range 2)])
+             v)
+      [(list)                      #f]
+      [(list depth)                #f]
+      [(list depth previous-depth) (> depth (add1 previous-depth))]))
+  ;; But that has allocations for the list. Slightly faster:
+  #;
+  (let ()
+    (local-require racket/match "../in-marks.rkt")
+    (match (for/vector #:length 2 #:fill #f
+                       ([v (in-marks (current-continuation-marks) depth-key)])
+                       v)
+      [(vector #f    #f)             #f]
+      [(vector depth #f)             #f]
+      [(vector depth previous-depth) (> depth (add1 previous-depth))]))
+  ;; But that still has some allocation for the vector and some
+  ;; overhead from in-marks. The following avoids as much allocation
+  ;; as we can. It provides a modest but measurable improvement in
+  ;; micro benchmarks.
+  (let*-values ([(iter) (continuation-mark-set->iterator
+                         (current-continuation-marks)
+                         (list depth-key))]
+                [(v0 iter) (iter)])
+    (if v0
+        (let-values ([(old-depth) (vector-ref v0 0)]
+                     [(v1 _) (iter)])
+          (if v1
+              (let* ([next-oldest (vector-ref v1 0)]
+                     [tail? (> old-depth (add1 next-oldest))]) ;e.g. (4 2) not (3 2)
+                tail?)
+              #f))
+        #f)))

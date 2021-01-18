@@ -25,12 +25,10 @@
 (define (cms->tracing-data cms)
    (continuation-mark-set-first cms key))
 
-(define-simple-macro (log-args e:expr ...)
-  (when (log?)
-    (do-log-args e ...)))
+;;; logging
 
-(define (do-log-args name tail? args kws kw-vals
-                     caller called positional-syms)
+(define (log-args name tail? args kws kw-vals
+                  caller called positional-syms)
   (define args-str (string-join
                     (append (match positional-syms
                               [(? symbol? s)
@@ -55,11 +53,7 @@
     (with-more-logging-data #:srcloc? #f
       (log! (~a (make-string (cms->logging-depth) #\>) " " message)))))
 
-(define-simple-macro (log-results e:expr ...)
-  (when (log?)
-    (do-log-results e ...)))
-
-(define (do-log-results name results caller called)
+(define (log-results name results caller called)
   (define results-str
     (~a (match results
           [(list)   "#<void>"]
