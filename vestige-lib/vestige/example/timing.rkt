@@ -20,7 +20,7 @@
           (recur (build-list 1000 values)))))
 
 (module traced racket/base
-  (require vestige/tracing/implicit)
+  (require (except-in vestige/tracing/implicit #%app))
 
   (require racket/match)
   (define (f x) (+ 1 (g x)))
