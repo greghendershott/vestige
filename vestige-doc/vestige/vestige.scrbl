@@ -329,8 +329,8 @@ this.
 @nested[#:style 'inset
 
   @deftogether[(
-    @defmapping['primary-site (or/c #f presentation)]
-    @defmapping['secondary-site (or/c #f presentation)]
+    @defmapping['primary-site (or/c #f _presentation)]
+    @defmapping['secondary-site (or/c #f _presentation)]
   )]{
 
   When the logging event originated from a
@@ -346,9 +346,9 @@ this.
 
   Otherwise, both values will be @racket[#f].}
 
-  @defthing[#:link-target? #f presentation
+  @defthing[#:kind " " #:link-target? #f _presentation
            (list* (or/c 'highlight 'replace 'after)
-                  path-string?
+                  (and/c string? path-string?)
                   exact-nonnegative-integer?
                   exact-nonnegative-integer?
                   (or/c (list)
