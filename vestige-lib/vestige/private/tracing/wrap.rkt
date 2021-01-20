@@ -29,27 +29,42 @@
     (define caller (cms->caller proc))
     (define old-depth (or (continuation-mark-set-first #f depth-key) 0))
     (define new-depth (add1 old-depth))
-    ;; Tentatively push the new depth:
+    ;; Let's say the list of depth marks now is e.g. (1 0). We know
+    ;; the old depth was 1. But we don't know whether we were called
+    ;; in a tail position. To learn that, we need to add a mark and
+    ;; see what happens:
     (with-continuation-mark depth-key new-depth
+      ;; If we were NOT called in tail position, there will have been
+      ;; a new continuation frame to which the mark was added. As a
+      ;; result, the marks list will have changed from e.g. (1 0) to
+      ;; (2 1 0). In the new list the first two elements are
+      ;; consecutive: (2 1).
+      ;;
+      ;; If we WERE called in tail position, there was no new
+      ;; continuation frame; that's what tail position means: same
+      ;; continuation. In that case the mark replaced any existing
+      ;; mark in the original frame. As a result, the marks list will
+      ;; have changed from e.g. (1 0) to (2 0). In the new list, the
+      ;; first two marks are not consecutive: (2 0).
+      ;;
+      ;; `tail?` checks whether the first two marks are consecutive.
       (cond
         [(tail?)
-         ;; Tail call: keep old depth and call `proc`. We don't print
-         ;; the results, because the original call will.
-         (with-continuation-mark depth-key old-depth
+         ;; Keep old depth. Call `proc`. Don't print results.
+         (with-continuation-mark depth-key old-depth ;e.g. (1 0)
            (begin
              (log-args name #t args kws kw-vals caller called positional-syms)
              (if (null? kws)
                  (apply proc args)
                  (keyword-apply proc kws kw-vals args))))]
         [else
-         ;; Not a tail call; push old depth, again, to ensure that
-         ;; when we push the new depth, we have consecutive depths
-         ;; associated with the mark (i.e., set up for tail-call
-         ;; detection the next time around):
-         (with-continuation-mark depth-key old-depth
+         ;; Push old depth, again, to ensure that when we push the new
+         ;; depth, we have consecutive depths (i.e. we're set up for
+         ;; tail detection the next time around):
+         (with-continuation-mark depth-key old-depth ;e.g. (1 1 0)
            (call-with-values
             (λ ()
-              (with-continuation-mark depth-key new-depth
+              (with-continuation-mark depth-key new-depth ;e.g. (2 1 1 0)
                 (begin
                   (log-args name #f args kws kw-vals caller called positional-syms)
                   (if (null? kws)
