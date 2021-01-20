@@ -104,19 +104,7 @@
   ;; benchmarks when called tens of thousands of times (which is a not
   ;; unlikely scenario for us).
   ;;
-  ;; Also: At least in 7.8 CS, `continuation-mark-set->iterator` takes
-  ;; the same `#f` shorthand for `(current-continuation-marks)` as
-  ;; does continuation-mark-set-first --- and, more importantly, it
-  ;; enables a similar shortcut/speedup. As I type this, not yet sure
-  ;; whether that's official and OK to rely on.
-  ;;
-  ;; Update: Racket CS supports #f by accident; Racket BC doesn't
-  ;; support this. Possibly Matthew will generalize BC and the docs to
-  ;; support it officially. I'll leave this for now, pending learning
-  ;; more. [This library is still "unstable" so it's possible I could
-  ;; require say Racket 8.0 to support using #f, or, (sad-face) revert
-  ;; back to supplying (c-c-m). Will see.]
-  (let*-values ([(iter0)    (continuation-mark-set->iterator #f (list depth-key))]
+  (let*-values ([(iter0)    (current-marks->iterator (list depth-key))]
                 [(v0 iter1) (iter0)])
     (and v0
          (let-values ([(this-depth) (vector-ref v0 0)]
@@ -124,3 +112,26 @@
            (and v1
                (let ([prev-depth (vector-ref v1 0)])
                  (> this-depth (add1 prev-depth)))))))) ;e.g. (4 2) not (3 2)
+
+;; At least in 7.8 CS, `continuation-mark-set->iterator` takes the
+;; same `#f` shorthand for `(current-continuation-marks)` as does
+;; continuation-mark-set-first --- and, it enables a similar
+;; shortcut/speedup. As I type this, not yet sure whether that's
+;; official and OK to rely on.
+;;
+;; Update: Racket CS supports #f by accident; Racket BC doesn't
+;; support this. Possibly Matthew will generalize BC and the docs to
+;; support it officially. Meanwhile, the following code does a runtime
+;; test whether #f is accepted.
+
+(define false-is-ok-for-continuation-mark-set->iterator
+  (with-handlers ([exn:fail? (λ _ #f)])
+    (continuation-mark-set->iterator #f (list 'foo))
+    #t))
+
+(define current-marks->iterator
+  (if false-is-ok-for-continuation-mark-set->iterator
+      (λ (keys)
+        (continuation-mark-set->iterator #f keys))
+      (λ (keys)
+        (continuation-mark-set->iterator (current-continuation-marks) keys))))
