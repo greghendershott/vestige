@@ -215,8 +215,8 @@ the depth by one for the dynamic extent of the form.
 When you use a @racketmodname[vestige/tracing] module, the depth at
 any point is the depth of the traced call(s). Other, ordinary logging
 is ``at that depth'' automatically. For example a @racket[log-info] in
-the body of a traced function is automatically at the depth as the
-tracing showing the function call. You only need use
+the body of a traced function is automatically at the same depth as
+the tracing of the function call. You only need use
 @racket[with-more-logging-depth] if you want to increase the depth
 even more.
 
@@ -228,18 +228,24 @@ information like @racket[current-inexact-milliseconds] and
 information eagerly matters because logger events are received later
 and in a different thread.
 
-Also records the srcloc for the form, enabling a tool to show the
-source of logging within the dynamic extent of this form..
+Also records @racket[srcloc] for the use site, enabling a tool to show
+the source of logging within the dynamic extent of this form.
 
 See also @racket[cms->logging-data].}
 
 @defform[(log-expression expr)]{Emits a logger event whose message
-shows the quoted form of @racket[expr] and its result. The result of
-@racket[expr] is the result of the @racket[log-expression] form.
+shows the quoted form of @racket[expr] and its result.
+
+The result of @racket[expr] is the result of the
+@racket[log-expression] form.
 
 Effectively a composition of @racket[with-more-logging-data] and a
 @racket[log-message] using @racket[vestige-topic] and
-@racket[vestige-level].}
+@racket[vestige-level].
+
+A @racket[log-expression] within the dynamic extent of a call to a
+function defined using @racketmodname[vestige/tracing] or a
+@racket[with-more-logging-depth] form is automatically at that depth.}
 
 
 @;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
