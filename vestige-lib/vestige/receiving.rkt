@@ -115,13 +115,13 @@
                (define beg pos)
                (define end (+ pos span))
                (match primary
-                 ;; Don't show caller site if it intersects primary
-                 ;; site.
+                 ;; When caller site intersects primary site, only
+                 ;; highlight caller, never replace text.
                  [(list 'replace primary-file primary-beg primary-end _str)
                   #:when (and (equal? file primary-file)
                               (or (<= beg primary-beg end)
                                   (<= beg primary-end end)))
-                  #f]
+                  (list 'highlight file beg end)]
                  ;; If caller was immediate, show application with
                  ;; actual args at caller site, too. Otherwise just
                  ;; highlight; it's just some indirect caller.
