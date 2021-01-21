@@ -2,7 +2,40 @@
 
 (require racket/match)
 
-(provide in-marks)
+(provide cms->iterator
+         in-marks)
+
+;; At least in 7.8 CS, `continuation-mark-set->iterator` takes the
+;; same `#f` shorthand for `(current-continuation-marks)` as does
+;; continuation-mark-set-first --- and, it enables a similar
+;; shortcut/speedup.
+;;
+;; Matthew says 2021-01-20 that Racket CS accepts #f by accident;
+;; Racket BC doesn't accept #f; maybe he'll generalize BC and the docs
+;; to accept #f officially.
+;;
+;; Meanwhile, and also to support older versions of BC, the following
+;; code does a runtime test whether #f is accepted.
+(define false-is-ok?
+  (with-handlers ([exn:fail? (λ _ #f)])
+    (continuation-mark-set->iterator #f (list 'n/a))
+    #t))
+
+;; This alternative to continuation-mark-set->iterator always accepts
+;; #f, passes that through when possible, and otherwise substitutes
+;; the current continuation marks.
+(define cms->iterator
+  (if false-is-ok?
+      continuation-mark-set->iterator
+      (λ (cms keys [none-v #f] [prompt-tag (default-continuation-prompt-tag)])
+        (call-with-current-continuation
+         (λ (k)
+           (continuation-mark-set->iterator (or cms (continuation-marks k))
+                                            keys
+                                            none-v
+                                            prompt-tag))))))
+
+;;; in-marks
 
 (define stop-value (gensym))
 
@@ -20,7 +53,7 @@
       [(list)   (raise-argument-error 'in-marks "at least one key" keys)]
       [(list _) single-stop-value] ;fast path
       [_        (build-list (length keys) (λ _ stop-value))]))
-  (define iter (continuation-mark-set->iterator cms keys none-v))
+  (define iter (cms->iterator cms keys none-v))
   (define (produce)
     (define-values (v new-iter) (iter))
     (set! iter new-iter)
@@ -30,6 +63,7 @@
       [(vector vs ...) (apply values vs)])) ;general path
   produce)
 
+;; Note that `cms` may be #f as for continuation-mark-set-first.
 (define (in-marks cms #:none-v [none-v #f] . keys)
   (in-producer (make-marks-producer cms keys none-v) stop?))
 
@@ -64,7 +98,12 @@
                (check-equal? (for/list ([v (in-marks cms key)]
                                         #:final (number? v))
                                v)
-                             '(a b 1)))))))))
+                             '(a b 1))
+               (check-equal? (for/list ([v (in-marks #f key)]
+                                        #:final (number? v))
+                               v)
+                             '(a b 1)
+                             "#f to mean current-continuation-marks works correctly"))))))))
 
   ;; This is just a shorter alias for with-continuation-mark.
   (define-simple-macro (with-mark key:expr val:expr body:expr)
@@ -84,7 +123,12 @@
                (check-equal? (for/list ([(v1 v2) (in-marks cms k1 k2)]
                                         #:final (and v1 v2))
                                (vector v1 v2))
-                             '(#(#f a) #(#f b) #(1 c))))))))))
+                             '(#(#f a) #(#f b) #(1 c)))
+               (check-equal? (for/list ([(v1 v2) (in-marks #f k1 k2)]
+                                        #:final (and v1 v2))
+                               (vector v1 v2))
+                             '(#(#f a) #(#f b) #(1 c))
+                             "#f to mean current-continuation-marks works correctly"))))))))
 
   ;; Expected failure
   (check-exn exn:fail:contract?

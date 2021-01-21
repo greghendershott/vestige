@@ -1,6 +1,7 @@
 #lang racket/base
 
 (require racket/contract
+         "../marks.rkt"
          "../logging/app.rkt"
          "../logging/depth.rkt"
          "../logging/log.rkt"
@@ -89,49 +90,32 @@
   ;; We need to check the first two marks, if any, for tail detection.
   ;; Conceptually:
   ;;
-  ;; (require racket/match "../in-marks.rkt")
-  ;; (match (for/list ([v (in-marks (current-continuation-marks) depth-key)]
+  ;; (require racket/match "../marks.rkt")
+  ;; (match (for/list ([v (in-marks #f depth-key)]
   ;;                   [_ (in-range 2)])
   ;;          v)
   ;;   [(list depth previous-depth) (> depth (add1 previous-depth))]
   ;;   [_                           #f])
   ;;
-  ;; But that has allocations for the list, and, in-marks has some
-  ;; overhead creating the sequence producer.
+  ;; Although for/list allocations can be mitigated by using
+  ;; for/vector with #:length, the fact remains that in-marks adds
+  ;; some overhead creating a sequence, producing it, and checking for
+  ;; its end.
   ;;
   ;; The following "bespoke" code avoids as much allocation as we can.
-  ;; It provides a modest but measurable improvement in micro
-  ;; benchmarks when called tens of thousands of times (which is a not
-  ;; unlikely scenario for us).
+  ;; Furthermore it uses our `cms->iterator` that supplies #f to
+  ;; continuation-mark-set->iterator when supported (this can be
+  ;; somewhat faster, as described in the docs for
+  ;; continuation-mark-set-first, which always/officially accepts #f).
   ;;
-  (let*-values ([(iter0)    (current-marks->iterator (list depth-key))]
+  ;; These micro optimizations provide a modest but measurable
+  ;; improvement in micro benchmarks, such as when called tens of
+  ;; thousands of times (which is a not unlikely scenario for us).
+  (let*-values ([(iter0)    (cms->iterator #f (list depth-key))]
                 [(v0 iter1) (iter0)])
     (and v0
          (let-values ([(this-depth) (vector-ref v0 0)]
                       [(v1 _iter2)  (iter1)])
            (and v1
                (let ([prev-depth (vector-ref v1 0)])
-                 (> this-depth (add1 prev-depth)))))))) ;e.g. (4 2) not (3 2)
-
-;; At least in 7.8 CS, `continuation-mark-set->iterator` takes the
-;; same `#f` shorthand for `(current-continuation-marks)` as does
-;; continuation-mark-set-first --- and, it enables a similar
-;; shortcut/speedup. As I type this, not yet sure whether that's
-;; official and OK to rely on.
-;;
-;; Update: Racket CS supports #f by accident; Racket BC doesn't
-;; support this. Possibly Matthew will generalize BC and the docs to
-;; support it officially. Meanwhile, the following code does a runtime
-;; test whether #f is accepted.
-
-(define false-is-ok-for-continuation-mark-set->iterator
-  (with-handlers ([exn:fail? (λ _ #f)])
-    (continuation-mark-set->iterator #f (list 'foo))
-    #t))
-
-(define current-marks->iterator
-  (if false-is-ok-for-continuation-mark-set->iterator
-      (λ (keys)
-        (continuation-mark-set->iterator #f keys))
-      (λ (keys)
-        (continuation-mark-set->iterator (current-continuation-marks) keys))))
+                 (> this-depth (add1 prev-depth)))))))) ;e.g. (2 0) not (1 0)
