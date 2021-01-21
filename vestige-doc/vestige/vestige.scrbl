@@ -54,6 +54,71 @@ special case of logging.
 
 @;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+@section{Logging}
+
+@defmodule[vestige/logging]
+
+This module provides forms that use @tech/ref{continuation marks} to
+associate extra information with the predefined
+@racketkeywordfont{log-@italic{level}} forms like @racket[log-debug],
+as well as the @racketkeywordfont{log-@italic{topic}-@italic{level}}
+forms defined by @racket[define-logger]. (This also works with
+@racket[log-message], provided its @racket[data] parameter is
+@racket[current-continuation-marks], as is the case with the preceding
+forms.)
+
+A @tech/ref{log receiver} must know to look for this information.
+Although the default log receiver created by Racket does not, it is
+easy to create your own log receiver --- which you would do anyway if
+you wanted to direct logging information to a destination like a local
+or cloud logging database. See @racketmodname[vestige/receiving].
+
+@defform[(with-more-logging-depth result-expr)]{Increases the depth
+for all logging calls within the dynamic extent of
+@racket[result-expr]. This allows for a grouping/indenting
+presentation in a log receiver that knows how to retrieve the depth.
+
+The default depth is zero. Each use of this form temporarily increases
+the depth by one for the dynamic extent of the form.
+
+When you use a @racketmodname[vestige/tracing] module, the depth at
+any point is the depth of the traced call(s). Other, ordinary logging
+is ``at that depth'' automatically. For example a @racket[log-info] in
+the body of a traced function is automatically at the same depth as
+the tracing of the function call. You only need use
+@racket[with-more-logging-depth] if you want to increase the depth
+even more.
+
+See also @racket[cms->logging-depth].}
+
+@defform[(with-more-logging-data result-expr)]{Eagerly captures
+information like @racket[current-inexact-milliseconds] and
+@racket[current-thread] in a continuation mark. Capturing such
+information eagerly matters because logger events are received later
+and in a different thread.
+
+Also records @racket[srcloc] for the use site, enabling a tool to show
+the source of logging within the dynamic extent of this form.
+
+See also @racket[cms->logging-data].}
+
+@defform[(log-expression expr)]{Emits a logger event whose message
+shows the quoted form of @racket[expr] and its result.
+
+The result of @racket[expr] is the result of the
+@racket[log-expression] form.
+
+Effectively a composition of @racket[with-more-logging-data] and a
+@racket[log-message] using @racket[vestige-topic] and
+@racket[vestige-level].
+
+A @racket[log-expression] within the dynamic extent of a call to a
+function defined using @racketmodname[vestige/tracing] or a
+@racket[with-more-logging-depth] form is automatically at that depth.}
+
+
+@;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 @section{Tracing}
 
 @subsection{Specific functions}
@@ -101,7 +166,7 @@ The second form defers to plain @racket[let].}
 
 Provides the same forms as does @racketmodname[vestige/tracing], but
 renamed without the @racketfont{trace-} prefix. For example
-@racketfont{define} is actually @racket[trace-define]. As a result,
+@racket[trace-define] is provided as @racketfont{define}. As a result,
 requiring this module shadows those definitions from the
 @racketmodname[racket/base] language.
 
@@ -179,73 +244,8 @@ Provides the exports of @racketmodname[racket/class], except for the
 method definition forms like @racket[define/private], for which it
 substitutes the same forms as does
 @racketmodname[vestige/tracing/class] but renamed without the
-@racketfont{trace-} prefix. For example @racketfont{define/private} is
-actually @racket[trace-define/private].
-
-
-@;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-@section{Logging}
-
-@defmodule[vestige/logging]
-
-This module provides forms that use @tech/ref{continuation marks} to
-associate extra information with the predefined
-@racketkeywordfont{log-@italic{level}} forms like @racket[log-debug],
-as well as the @racketkeywordfont{log-@italic{topic}-@italic{level}}
-forms defined by @racket[define-logger]. (This also works with
-@racket[log-message], provided its @racket[data] parameter is
-@racket[current-continuation-marks], as is the case with the preceding
-forms.)
-
-A @tech/ref{log receiver} must know to look for this information.
-Although the default log receiver created by Racket does not, it is
-easy to create your own log receiver --- which you would do anyway if
-you wanted to direct logging information to a destination like a local
-or cloud logging database. See @racketmodname[vestige/receiving].
-
-@defform[(with-more-logging-depth result-expr)]{Increases the depth
-for all logging calls within the dynamic extent of
-@racket[result-expr]. This allows for a grouping/indenting
-presentation in a log receiver that knows how to retrieve the depth.
-
-The default depth is zero. Each use of this form temporarily increases
-the depth by one for the dynamic extent of the form.
-
-When you use a @racketmodname[vestige/tracing] module, the depth at
-any point is the depth of the traced call(s). Other, ordinary logging
-is ``at that depth'' automatically. For example a @racket[log-info] in
-the body of a traced function is automatically at the same depth as
-the tracing of the function call. You only need use
-@racket[with-more-logging-depth] if you want to increase the depth
-even more.
-
-See also @racket[cms->logging-depth].}
-
-@defform[(with-more-logging-data result-expr)]{Eagerly captures
-information like @racket[current-inexact-milliseconds] and
-@racket[current-thread] in a continuation mark. Capturing such
-information eagerly matters because logger events are received later
-and in a different thread.
-
-Also records @racket[srcloc] for the use site, enabling a tool to show
-the source of logging within the dynamic extent of this form.
-
-See also @racket[cms->logging-data].}
-
-@defform[(log-expression expr)]{Emits a logger event whose message
-shows the quoted form of @racket[expr] and its result.
-
-The result of @racket[expr] is the result of the
-@racket[log-expression] form.
-
-Effectively a composition of @racket[with-more-logging-data] and a
-@racket[log-message] using @racket[vestige-topic] and
-@racket[vestige-level].
-
-A @racket[log-expression] within the dynamic extent of a call to a
-function defined using @racketmodname[vestige/tracing] or a
-@racket[with-more-logging-depth] form is automatically at that depth.}
+@racketfont{trace-} prefix. For example @racket[trace-define/private]
+is provided as @racketfont{define/private}.
 
 
 @;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -732,7 +732,7 @@ level and topic, as well as from the @racket['info] level of the
 @racket['example] topic (since our example used @racket[(define-logger
 example)] and @racket[log-example-info]). Finally, we only want to see
 @racket['fatal] level events for all other topics (which effectively
-means we'll see almost nothing).
+means we'll see almost nothing for them).
 
 
 @subsection{Using @racket[with-intercepted-logging] and JSON}
