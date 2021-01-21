@@ -126,7 +126,7 @@
                  ;; actual args at caller site, too. Otherwise just
                  ;; highlight; it's just some indirect caller.
                  [_ (if immediate?
-                        (list 'replace file beg end message)
+                        (list 'replace   file beg end message)
                         (list 'highlight file beg end))])]
               [_ #f]))
           (add #:primary   primary
@@ -138,13 +138,13 @@
               [(list _line _col pos span)
                (list 'after file pos (+ pos span) msg)]
               [_ #f]))
-          ;; Only caller site if it /directly/ called traced function.
           (define secondary
-            (and immediate?
-                 (match caller-srcloc
-                   [(list file _line _col pos span)
-                    (list 'after file pos (+ pos span) msg)]
-                   [_ #f])))
+            (match caller-srcloc
+              [(list file _line _col pos span)
+               (if immediate?
+                   (list 'after     file pos (+ pos span) msg)
+                   (list 'highlight file pos (+ pos span)))]
+              [_ #f]))
           (add #:primary   primary
                #:secondary secondary)])]
       [_ #f]))

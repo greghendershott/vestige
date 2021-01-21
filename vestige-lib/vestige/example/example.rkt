@@ -91,7 +91,8 @@
 
 (module thread-example racket/base
   (require vestige/tracing/implicit)
-  (define (foo x) x)
+  (define (bar x) (+ 1 x))
+  (define (foo x) (+ 2 (bar x)))
   (define (t1-thunk) (for ([n 2]) (foo n) (sleep 0)))
   (define (t2-thunk) (for ([n 2]) (foo n) (sleep 0)))
   (define t1 (thread t1-thunk))
