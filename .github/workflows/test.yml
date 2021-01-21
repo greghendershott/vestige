@@ -20,7 +20,7 @@ jobs:
         include:
           - racket_version: 'current'
             allow_failure: true
-    name: Test Racket ${{ matrix.racket_version }}
+    name: Test Racket ${{ matrix.racket_version }} ${{ matrix.racket_variant }}
     steps:
       - name: Checkout
         uses: actions/checkout@master
