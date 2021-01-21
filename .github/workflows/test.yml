@@ -14,6 +14,9 @@ jobs:
           - '7.8'
           - '7.9'
           - 'current'
+        racket_variant:
+          - 'BC'
+          - 'CS'
         include:
           - racket_version: 'current'
             allow_failure: true
