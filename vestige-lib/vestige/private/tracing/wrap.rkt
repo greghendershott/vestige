@@ -27,7 +27,7 @@
                                          header-srcloc
                                          formals-srcloc))
   (define (traced kws kw-vals args)
-    (define caller (cms->caller proc))
+    (define caller (cms->caller wrapped-proc))
     (define old-depth (or (continuation-mark-set-first #f depth-key) 0))
     (define new-depth (add1 old-depth))
     ;; Let's say the list of depth marks now is e.g. (1 0). We know
@@ -83,8 +83,10 @@
     (if (log?)
         (traced kws kw-vals args)
         (keyword-apply proc kws kw-vals args)))
-  (procedure-rename (make-keyword-procedure kw-proc plain-proc)
-                    name))
+  (define wrapped-proc
+    (procedure-rename (make-keyword-procedure kw-proc plain-proc)
+                      name))
+  wrapped-proc)
 
 (define (tail?)
   ;; We need to check the first two marks, if any, for tail detection.
