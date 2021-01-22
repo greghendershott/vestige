@@ -27,9 +27,9 @@
 (define-runtime-path here ".")
 
 (define this-collection-top
-  (explode-path (simplify-path (build-path here 'up 'up 'up))))
+  (explode-path (simplify-path (build-path here 'up 'up))))
 
-(unless (equal? (build-path "vestige-lib")
+(unless (equal? (build-path "vestige")
                 (car (reverse this-collection-top)))
   (error 'this-collection-top
          "Need to update after reorganizing source file layout"))
