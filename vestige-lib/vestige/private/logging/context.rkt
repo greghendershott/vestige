@@ -1,6 +1,8 @@
 #lang racket/base
 
 (require racket/match
+         racket/runtime-path
+         racket/list
          "srcloc.rkt")
 
 (provide cms->context-srcloc)
@@ -11,16 +13,28 @@
 ;; situ" similar to a step debugger, it is useful information. For
 ;; example it's more than adequate for devops logging purposes, and
 ;; anyway in such cases vestige-#%app might be avoided for peformance.
+
 (define (cms->context-srcloc cms)
   (for/or ([id+srcloc (in-list (continuation-mark-set->context cms))])
     (match id+srcloc
       [(cons _id (and sl (struct* srcloc ([source src]))))
        #:when (and (path-string? src)
                    (complete-path? src)
-                   (not (equal? (filename-directory src)
-                                (filename-directory (syntax-source #'this-file)))))
+                   (not (within-this-collection? src)))
        (->srcloc-as-list sl)]
       [_ #f])))
 
-(define (filename-directory p)
-  (car (call-with-values (λ () (split-path p)) list)))
+(define-runtime-path here ".")
+
+(define this-collection-top
+  (explode-path (simplify-path (build-path here 'up 'up 'up))))
+
+(unless (equal? (build-path "vestige-lib")
+                (car (reverse this-collection-top)))
+  (error 'this-collection-top
+         "Need to update after reorganizing source file layout"))
+
+(define (within-this-collection? p)
+  (println p)
+  (list-prefix? this-collection-top
+                (explode-path (simplify-path p))))

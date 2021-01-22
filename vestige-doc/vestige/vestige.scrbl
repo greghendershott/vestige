@@ -434,7 +434,8 @@ the tracing forms.}
 
 Returns the first non-false srcloc value, if any, from
 @racket[continuation-mark-set->context] whose source is
-@racket[complete-path?].}
+@racket[complete-path?] and is not within the source of the vestige
+library itself.}
 
 @defproc[(cms->logging-data [cms continuation-mark-set?])
          (or/c #f (and/c hash? hash-eq? immutable?))]{
