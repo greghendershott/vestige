@@ -23,7 +23,7 @@
   (with-continuation-mark key data e))
 
 (define (cms->tracing-data cms)
-   (continuation-mark-set-first cms key))
+  (continuation-mark-set-first cms key))
 
 ;;; logging
 

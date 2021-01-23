@@ -29,5 +29,4 @@
 ;; continuation-mark-set-first: An alias for
 ;; (current-continuation-marks) that can possibly work faster.
 (define (cms->logging-depth [cms #f])
-  (or (continuation-mark-set-first cms depth-key)
-      0))
+  (continuation-mark-set-first cms depth-key 0))
