@@ -35,6 +35,5 @@
          "Need to update after reorganizing source file layout"))
 
 (define (within-this-collection? p)
-  (println p)
   (list-prefix? this-collection-top
                 (explode-path (simplify-path p))))
