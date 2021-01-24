@@ -16,24 +16,33 @@
 
 (define (cms->context-srcloc cms)
   (for/or ([id+srcloc (in-list (continuation-mark-set->context cms))])
-    (match id+srcloc
-      [(cons _id (and sl (struct* srcloc ([source src]))))
-       #:when (and (path-string? src)
-                   (complete-path? src)
-                   (not (within-this-collection? src)))
-       (->srcloc-as-list sl)]
-      [_ #f])))
+    (define sl (cdr id+srcloc))
+    (and sl
+         ;; The following dance is to work around the fact that Racket
+         ;; structs are generative, and a log receiver might not share
+         ;; the same `srcloc` struct as the log event producer.
+         (struct? sl)
+         (match (vector->list (struct->vector sl))
+           [(cons 'struct:srcloc
+                  (and sl (list src _line _col _pos _span)))
+            ;; Only use srclocs with a complete path, and one to a
+            ;; file outside of our implementation.
+            (and (path-string? src)
+                (complete-path? src)
+                (not-our-private-file src)
+                (->srcloc-as-list sl))]
+           [_ #f]))))
 
 (define-runtime-path here ".")
 
-(define this-collection-top
-  (explode-path (simplify-path (build-path here 'up 'up))))
+(define our-private-dir
+  (explode-path (simplify-path (build-path here 'up))))
 
-(unless (equal? (build-path "vestige")
-                (car (reverse this-collection-top)))
+(unless (equal? (build-path "private")
+                (car (reverse our-private-dir)))
   (error 'this-collection-top
          "Need to update after reorganizing source file layout"))
 
-(define (within-this-collection? p)
-  (list-prefix? this-collection-top
-                (explode-path (simplify-path p))))
+(define (not-our-private-file p)
+  (not (list-prefix? our-private-dir
+                     (explode-path (simplify-path p)))))
