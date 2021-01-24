@@ -2,6 +2,7 @@
 
 (require (for-syntax racket/base
                      "srcloc.rkt")
+         racket/match
          syntax/parse/define)
 
 (provide cms->logging-data
@@ -15,7 +16,13 @@
 (define key 'vestige-logging-data-continuation-mark-key)
 
 (define (cms->logging-data cms)
-  (continuation-mark-set-first cms key))
+  (match (continuation-mark-set-first cms key)
+    [(vector srcloc msec thd perf)
+     (hasheq 'srcloc            srcloc
+             'msec              msec
+             'thread            thd
+             'performance-stats perf)]
+    [_ #f]))
 
 (define-syntax-parser with-more-logging-data
   [(_
@@ -23,14 +30,11 @@
                #:defaults ([srcloc? #'#t]))
     e:expr)
    (quasisyntax/loc this-syntax
-     (let ([data
-            (hasheq 'srcloc            (and srcloc?
-                                            '(#,@(->srcloc-as-list #'e)))
-                    'msec              (current-inexact-milliseconds)
-                    'thread            (current-thread)
-                    'performance-stats (vectors))])
-       (with-continuation-mark key data
-         e)))])
+     (with-continuation-mark key (vector (and srcloc? '(#,@(->srcloc-as-list #'e)))
+                                         (current-inexact-milliseconds)
+                                         (current-thread)
+                                         (vectors))
+       e))])
 
 (define (vectors)
   (define global (make-vector 12))

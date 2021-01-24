@@ -4,6 +4,7 @@
          racket/match
          racket/string
          syntax/parse/define
+         "../logging/app.rkt"
          "../logging/depth.rkt"
          "../logging/log.rkt"
          "../logging/data.rkt")
@@ -11,10 +12,7 @@
 (provide log-args
          log-results
          cms->tracing-data
-         make-tracing-data
          make-called-hash-table)
-
-;;; continuation mark
 
 ;; Intentionally not using make-continuation-mark-key.
 (define key 'vestige-tracing-continuation-mark-key)
@@ -23,12 +21,19 @@
   (with-continuation-mark key data e))
 
 (define (cms->tracing-data cms)
-  (continuation-mark-set-first cms key))
+  (match (continuation-mark-set-first cms key)
+    [(vector call? tail? name message caller called args-from args-upto)
+     (hasheq 'call       call?
+             'tail       tail?
+             'name       name
+             'message    message
+             'args-from  args-from
+             'args-upto  args-upto
+             'called     called
+             'caller     (caller-vector->hasheq caller))]
+    [#f #f]))
 
-;;; logging
-
-(define (log-args name tail? args kws kw-vals
-                  caller called positional-syms)
+(define (log-args name tail? args kws kw-vals caller called positional-syms)
   (define args-str (string-join
                     (append (match positional-syms
                               [(? symbol? s)
@@ -47,9 +52,7 @@
   (define args-from (string-length prefix))
   (define args-upto (+ args-from (string-length args-str)))
   (define message (~a prefix args-str suffix))
-  (with-tracing-mark (make-tracing-data #t tail? name message
-                                        caller called
-                                        args-from args-upto)
+  (with-tracing-mark (vector #t tail? name message caller called args-from args-upto)
     (with-more-logging-data #:srcloc? #f
       (log! (~a (make-string (cms->logging-depth) #\>) " " message)))))
 
@@ -59,27 +62,14 @@
           [(list)   "#<void>"]
           [(list v) (~v v)]
           [vs       (~s (cons 'values vs))])))
-  (with-tracing-mark (make-tracing-data #f #f name results-str
-                                        caller called)
+  (with-tracing-mark (vector #f #f name results-str caller called #f #f)
     (with-more-logging-data #:srcloc? #f
       (log! (~a (make-string (cms->logging-depth) #\<) " " results-str)))))
-
-(define (make-tracing-data call? tail? name message
-                           caller called
-                           [args-from #f] [args-upto #f])
-  (hasheq 'call       call?
-          'tail       tail?
-          'name       name
-          'message    message
-          'args-from  args-from
-          'args-upto  args-upto
-          'called     called
-          'caller     caller))
 
 ;; The srcloc for all three of these should be the same file. If it's
 ;; ever not, then that's a bug with the srcloc handling in forms.rkt.
 ;; Supplying the file pathname thrice sucks especially because it
-;; takes by far the most space. So here we reshape the three srlocs
+;; takes by far the most space. So here we reshape the three srclocs
 ;; into a little hash-table. We state the file pathname, once, and
 ;; supply only the cdr -- (line col pos span) -- of each
 ;; srcloc-as-list.

@@ -27,7 +27,7 @@
                                          header-srcloc
                                          formals-srcloc))
   (define (traced kws kw-vals args)
-    (define caller (cms->caller wrapped-proc))
+    (define caller (cms->caller-vector wrapped-proc))
     (define old-depth (continuation-mark-set-first #f depth-key 0))
     (define new-depth (add1 old-depth))
     ;; Let's say the list of depth marks now is e.g. (1 0). We know
